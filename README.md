@@ -1,92 +1,102 @@
-# auto_murcis
+# **MuRCiS Pipeline**
+
+### Purpose:
+
+This repository is associated with the coupling of multiplex random CRISPR array assembly with high-throughput long-read sequence analysis (MuRCiS). This will take ccs_bam PacBio files, determine the read length, plot box plots, quantitate the number and type of unique CRISPRi arrays, and plot correlation and chord plots.
+
+The first part of the pipeline requires basic Linux commands, which are explained here. This will count the read lengths and remove reads lacking a match to the repeat region. The second part of the pipeline is more automated and uses `murcs_script.py` for this.
+
+**Note:** These scripts have been tested on Linux (CentOS7) and Mac (MacOS 12.6). Some modification may be required to run these on other operating systems. 
+
+For questions, please email `kmyers2 at wisc dot edu`. 
+
+### Determining the Read Lengths of the PacBio files
+
+ - Determine the read lengths in the the `ccs.bam` files using `samtools` and `awk`:
+	
+	`samtools view Sample1.ccs.bam | awk '{print length($10)}' > Sample1.ccs_read_lengths.txt`
+
+ - Convert the `bam` file to a `fasta` file for future analysis using `samtools`:
+
+	`samtools fasta Sample1.ccs.bam > Sample1.ccs.fasta`
+
+ - Determine the total number of reads using `grep`:
+
+	`grep ">" Sample1.ccs.fasta -c`
+
+ - Determine the number of reads with a repeat sequence, testing both forward and reverse orientations, using `grep` and `bioawk`:
+
+	`grep -B1 GTTTTAGAGCTATGCTGTTTTGAATGGTCCCAAAAC Sample1.ccs.fasta > Sample1.repeat_match.fasta`
+	
+	`grep -B1 GTTTTGGGACCATTCAAAACAGCATAGCTCTAAAAC Sample1.ccs.fasta >> Sample1.repeat_match.fasta`
+
+	`bioawk -c fastx '{print ">" $name ORS length($seq)}' Sample1.repeat_match.fasta > Sample1.repeat_match_read_lengths.fasta`
+
+	`bioawk -c fastx '{print ">"$name" "$comment"\t"$seq}' Sample1.repeat_match_read_lengths.fasta > Sample1.repeat_match_read_lengths.txt`
+
+	`grep ">" Sample1.repeat_match_read_lengths.txt -c`
+
+ - Combine the `repeat_match.txt` files and run the `plotting_boxplots_for_read_lengths.R` Rscript by indicating where to find the combined_reads.txt file as the one argument after the command:
+
+	`paste *repeat_match.txt > combined_reads.txt`
+
+	`Rscript plotting_boxplots_for_read_lengths.R ./`
 
 
+### Process the `repeat_match.fasta` files using `murcs_script.py`
 
-## Getting started
+This script will count the number of times each spacer + repeat combination appears in FASTA files
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Input is a list of the spacer and repeat combinations and list of FASTA files to search
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Spacer/Repeat Combination File should be a two column, tab delimited file with the first tab
+being the name of the Spacer/Repeat combination and the second column the sequence to search (`-t`):
+    
+    ID                  Seq
+    Gene_S_R_1          ATTAAGCCATGGCAGTGCAGACGATAGAGCACATAGCTAGCTATACGATAAAATCG
+    Gene_S_R_2          TTCAAAACAGCATAGCTCTAAAACATTAAGCCCCAAAAAATAGATATGAGCCACAG
+    
+FASTA File should be a list with FASTA files to process in a single column, one per line (`-f`)
 
-## Add your files
+Path should be indicated as the location of the Rscript (`-p`)
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+There are multiple outputs, each named by remove the .fasta and adding text:
+ - _search_results.txt = Initial search results file
+ - _gene_combinations_per_read.txt = list of genes with matches to each read
+ - _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name
+ - _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries written to file (position and gene name)
+ - _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted by position of match relative to the start of the read (spacer order)
+ - All_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible constructs and sub-constructs along with counts for each experiment
+ - temp_sorted_possible_combinations.txt = intermediate file with all possible construct and sub-construct combinations
+ - temp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary of all possible construct and sub-construct combinations
+ - _pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with minHit of 5
+ - _pairwise_allHits_correlationPlot.pdf = Correlation plot for each sample including all hits
+ - _pairwise_minHit5_correlationPlot.pdf = Correlation plot for each sample with minHit of 5
+    
+Requirements:
+    
+	Python modules:
+        argparse
+        SeqIO from BioPython
+        Combinations from Itertools
+        os
+        re
+        subprocess
+        sys
+        time
+    R libraries:
+        ggplot2
+        reshape2
+        circlize
 
-```
-cd existing_repo
-git remote add origin https://gitpub.wei.wisc.edu/mplace/auto_murcis.git
-git branch -M main
-git push -uf origin main
-```
+Script must be run in the same directory as the FASTA files and Spacer/Repeat Combination File
 
-## Integrate with your tools
+To run the script, `cd` to the directory containing the files to analyze and run this as an example:
 
-- [ ] [Set up project integrations](https://gitpub.wei.wisc.edu/mplace/auto_murcis/-/settings/integrations)
+	`python ~/scripts/MuRCS_pipeline/murcs_script.py -f fasta_files.txt -t Spacer_Repeat_Combination_File.txt -p ~/bin/MuRCS_pipeline`
 
-## Collaborate with your team
+### Notes
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+This has been tested on Linus (CentOS7) and MacOS (12.6). Other modifications may be required to have it run on other operating systems.
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Contact `kmyers2 at wisc dot edu` with questions!
