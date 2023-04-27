@@ -54,9 +54,11 @@ This has been tested on MacOS 12.6. It may require modification to run on other 
 
 @author: kmyers2@wisc.edu
 """
-import argparse
 from Bio import SeqIO
+from contextlib import redirect_stderr
 from itertools import combinations
+import argparse
+import pysam
 import os
 import re
 import subprocess
@@ -666,7 +668,8 @@ def cleanUp( cwd ):
 
     Parameters
     ----------
-    cwd : Current Working Directory
+    cwd : str 
+        Current Working Directory
 
     Returns
     -------
@@ -688,12 +691,39 @@ def cleanUp( cwd ):
     bamDir = cwd + "/fasta_files/"
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".fasta") ]
 
+def makeFasta(bamList):
+    """makeFasta
+
+    Using list of bam files create a new fasta file for each bam.
+
+    Parameters
+    ----------
+    bamList : list
+        List containing bam files to process.
+    
+    """
+    fastaLst = []           # list of newly created fasta files to return
+
+    with open('bamToFasta.log', 'w') as log:                  # log any errors
+    # create a fasta file for each bam file using pysam
+        for bam in bamList:
+            fastaName = re.sub('.bam', '.fa',bam)             # create new fasta name
+            cmd = ['samtools', 'fasta', '-0', fastaName, bam] # setup samtools command
+            # run command
+            output = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()
+            # log any problems
+            result = output[1].decode('utf-8')
+            log.write(result)
+            log.write("\n")
+    log.close()
+
+    return fastaLst            
 
 def main():
    
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in FASTA files for NIH Project and produce organized files for further analysis along with different plots.",
                                         usage='%(prog)s -f <list of FASTAs to process> -t <spacer and repeat combinations> -p <path to GitHub Repo and Rscript> [optional arguments: -d]', prog='count_spacers_NIH.py'  )                                  
-    cmdparser.add_argument('-f', '--file',  action='store', dest='FILE' , help='File with FASTAs to process, one per line.', metavar='')
+    cmdparser.add_argument('-f', '--file',  action='store', dest='FILE' , help='File with all the bam files to process, one per line.', metavar='')
     cmdparser.add_argument('-t', '--targets',  action='store', dest='TARGETS' , help='spacer + repeat targets for each gene', metavar='')
     cmdparser.add_argument('-p', '--path', action='store', dest='PATH', help='Path to location of GitHub Repo and Python and R Scripts', metavar='')
     cmdparser.add_argument('-d', '--detail',  action='store_true', dest='DETAIL' , help='Print a more detailed description of the program.')
@@ -741,8 +771,27 @@ def main():
         print("See Kevin Myers (kmyers2@wisc.edu) with any questions.\n\n")
         sys.exit(1)
     
-    FASTA_files = []
+    BAM_files   = []   # hold list of initial input bam files to process
     
+    if cmdResults['FILE'] is not None:
+        bamfile = cmdResults['FILE']
+        with open(bamfile, 'r') as f:
+            for bam in f:
+                BAM_files.append(bam.rstrip())
+    else:
+        print("Please provide a file with GFF names, one per line.\n")
+        cmdparser.print_help()
+        sys.exit(1)
+
+    # create fasta files from bam file, store in list
+    FASTA_files = makeFasta(BAM_files)
+    print('FASTA_files')
+    for f in FASTA_files:
+        print(f)
+
+
+
+    '''
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
     else:
@@ -757,12 +806,7 @@ def main():
         cmdparser.print_help()
         sys.exit(1)
     
-    if cmdResults['FILE'] is not None:
-        FASTA_File = cmdResults['FILE']
-    else:
-        print("Please provide a file with GFF names, one per line.\n")
-        cmdparser.print_help()
-        sys.exit(1)
+    
         
     with open(FASTA_File, 'r') as f:
         for line in f:
@@ -776,7 +820,7 @@ def main():
     for fasta in FASTA_files:
         search( gene_list, fasta )
     
-    print("Combinging all the experimental count files together…\n")
+    print("Combining all the experimental count files together…\n")
     
     combineCountFiles( cwd )
     
@@ -800,7 +844,7 @@ def main():
     total_time_hours = round(total_time/60/60, 2)
     print(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
     print("Please email Kevin Myers (kmyers2@wisc.edu) with any questions.\n")
-
+    '''
         
 if __name__ == "__main__":
     main()
