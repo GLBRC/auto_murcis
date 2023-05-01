@@ -16,8 +16,7 @@ being the name of the Spacer/Repeat combindation and the second column the seque
     
 Fasta File should be a list with FASTA files to process in a single column, one per line (-f)
 
-Path should be indicated as the location of the Rscript (-p)
-    
+Path should be indicated as the location of the Rscript (-p)    
 
 There are multiple outputs, each named by remove the .fasta and adding text:
     _search_results.txt = Initial search results file
@@ -58,6 +57,7 @@ from Bio import SeqIO
 from contextlib import redirect_stderr
 from itertools import combinations
 import argparse
+import pyfastx
 import pysam
 import os
 import re
@@ -66,15 +66,18 @@ import sys
 import time
 
 def search( gene_list, fasta ):
-    """
+    """search
+
     Search for matches to every spacer+repeat combination and organize the
     output and indicate number of times each construct and sub-construct
     are found in the data.
     
     Parameters
     ----------
-    gene_list : text file with each possible spacer+repeat combination
-    fasta : fasta file from PacBio CCS processing to search
+    gene_list : list
+        text file with each possible spacer+repeat combination
+    fasta : str 
+        fasta file from PacBio CCS processing to search
 
     Returns
     -------
@@ -502,13 +505,15 @@ def search( gene_list, fasta ):
     
 
 def combineCountFiles( cwd ):
-    """
+    """combineCountFiles
+
     Organize every possible construct and sub-construct from all experiments and
     record the hits for each in a single file.
     
     Parameters
     ----------
-    cwd : Current working directory
+    cwd : str
+        Current working directory
     
     Returns
     -------
@@ -647,7 +652,8 @@ def combineCountFiles( cwd ):
             f.write(f"{each}")
 
 def chord_correlation_plots( cwd, path_to_R ):
-    """
+    """chord_correlation_plots
+
     Run the Rscript to plot the Chord and Correlation plots
     
     command = Rscript /Users/kevinmyers/scripts/nicole_nih_scripts/chord_correlation_plot_script.R ./
@@ -661,7 +667,8 @@ def chord_correlation_plots( cwd, path_to_R ):
     subprocess.run( cmd )  
 
 def cleanUp( cwd ):
-    """
+    """cleanUp
+
     Organize the working directory by moving all intermediate files to a new 
     directory (other_files) and the initial FASTA files to a new directory
     (fasta_files)
@@ -670,10 +677,6 @@ def cleanUp( cwd ):
     ----------
     cwd : str 
         Current Working Directory
-
-    Returns
-    -------
-    None.
 
     """
     cwd = cwd + "/"
@@ -700,6 +703,10 @@ def makeFasta(bamList):
     ----------
     bamList : list
         List containing bam files to process.
+    Returns
+    -------
+    fastaLst : list
+        List of newly created fasta files.
     
     """
     fastaLst = []           # list of newly created fasta files to return
@@ -707,7 +714,7 @@ def makeFasta(bamList):
     with open('bamToFasta.log', 'w') as log:                  # log any errors
     # create a fasta file for each bam file using pysam
         for bam in bamList:
-            fastaName = re.sub('.bam', '.fa',bam)             # create new fasta name
+            fastaName = re.sub('.bam', '.fasta',bam)             # create new fasta name
             cmd = ['samtools', 'fasta', '-0', fastaName, bam] # setup samtools command
             # run command
             output = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()
@@ -717,8 +724,43 @@ def makeFasta(bamList):
             log.write("\n")
     log.close()
 
-    return fastaLst            
+    return fastaLst 
 
+def countLines(fasta):
+    """countLines
+    
+    Count lines in fasta file and divide by 2 to return the number of sequences.
+    Utilizes Pysam to get sequence lengths and number of reads.
+
+    Parameters
+    ----------
+    fasta : str
+        fasta file name
+    Returns
+    -------
+    count : int
+        Number of sequences in fasta file
+    """
+    fsa = pysam.FastaFile(fasta)
+    seqLens  = fsa.lengths
+    numReads = len(fsa.lengths)
+    return seqLens, numReads    
+
+def processFasta(FastaLst):
+    """processFasta
+
+    Collect read counts, read lengths for all fasta files and write to file.
+
+    Parameters
+    ----------
+    FastaLst : list
+        List containing the fasta files to process (previously converted from input bams)    
+    """    
+    pass   
+
+
+        
+    
 def main():
    
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in FASTA files for NIH Project and produce organized files for further analysis along with different plots.",
@@ -784,39 +826,43 @@ def main():
         sys.exit(1)
 
     # create fasta files from bam file, store in list
-    FASTA_files = makeFasta(BAM_files)
-    print('FASTA_files')
-    for f in FASTA_files:
-        print(f)
+    FASTA_files = makeFasta(BAM_files)#################################
+    ## TESTING ONLY
+    #Fasta_files = ['Amoeba_output_A2.ccs.fasta']
 
-
-
-    '''
+    # retrieve spacer and repeat file
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
     else:
         print("Please provide a file spacer + repeat sequences.\n")
         cmdparser.print_help()
         sys.exit(1)
-        
+
+    '''    
     if cmdResults['PATH'] is not None:
         path = cmdResults['PATH']
     else:
         print("Please provide a path to the Python and R scripts (GitHub Repo).\n")
         cmdparser.print_help()
         sys.exit(1)
-    
-    
-        
-    with open(FASTA_File, 'r') as f:
-        for line in f:
-            line2 = line.rstrip('\n')
-            FASTA_files.append(line2)
-    
-    number_of_files = len(FASTA_files)
-
-    print(f"There are {number_of_files} FASTAs to process.\n")    
-    
+    '''
+    # report number of fasta files to process
+    number_of_files = len(Fasta_files)
+    print(f"There are {number_of_files} Fasta files to process.\n")    
+    '''
+    # create an output file containing all the read lengths of the original input files 
+    readStats    = {}          # store a list of all lengths for all samples    
+    orig_readLen = []          # 
+    for fsa in Fasta_files:
+        seqLen, totalReads = countLines(fsa)
+        if fastq not in readStats:
+            readStats[fastq] = seqLen
+        with open(re.sub('.fasta', '_read_lengths.txt',fsa)) as out:
+            for rd in totalReads:
+                out.write(f'{rd}\n')
+        out.close()
+    '''    
+    '''
     for fasta in FASTA_files:
         search( gene_list, fasta )
     
