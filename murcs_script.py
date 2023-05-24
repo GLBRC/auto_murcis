@@ -723,7 +723,8 @@ def makeFasta(bamList):
     with open('bamToFasta.log', 'w') as log:                  # log any errors
     # create a fasta file for each bam file using pysam
         for bam in bamList:
-            fastaName = re.sub('.bam', '.fasta',bam)             # create new fasta name
+            fastaName = re.sub('.bam', '.fasta',bam)          # create new fasta name
+            fastaLst.append(fastaName)
             cmd = ['samtools', 'fasta', '-0', fastaName, bam] # setup samtools command
             # run command
             output = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()
@@ -782,6 +783,77 @@ def countRepeats(fsaFile, repeat):
                     lout.write(f'{len(dat[i].seq)}\n')
     out.close()                 
     
+def geneSpacerCombinations(spcrRpt):
+    """geneSpacerCombinations
+
+    Generate the 8 gene spacer combinations required to search the fasta files.
+    These include Spacer+repeat, repeat+spacer, SpacerRC+repeat, repeat+SpacerRC,
+    Spacer+repeatRC, repeatRC+spacer, SpacerRC+repeatRC, repeatRC+SpacerRC
+    where RC indicates the reverse complement.
+
+    Parameters
+    ----------
+    spcrRpt : str
+        Spacer/repeat sequence file provided by user.
+    Returns
+    -------
+    comboLst : list
+        list of all spacer/repeat combinations.
+    """
+    space = []
+    with open(spcrRpt, 'r') as f, open('gene_spacer_combinations.txt', 'w') as out:
+        f.readline()      # skip header
+        rpt = f.readline().rstrip().split('\t')[1]   # grab repeat, 1st row
+        rptRC = str(Seq(rpt).reverse_complement())
+        
+        for line in f:
+            gene, spacer = line.rstrip().split('\t')
+            spacerRC = str(Seq(spacer).reverse_complement())    
+            
+            # generate spacer repeat combinations
+            #gene_Spacer+repeat  
+            combo = gene + '_spacer+repeat\t' + spacer + rpt
+            out.write(combo + '\n')
+            space.append(combo)
+            
+            #gene_repeat+spacer  
+            combo = gene + '_repeat+spacer\t' + rpt + spacer
+            out.write(combo + '\n')
+            space.append(combo)
+            
+            #gene_SpacerRC+repeat    
+            combo = gene + '_spacerRC+repeat\t' + spacerRC + rpt
+            out.write(combo + '\n')
+            space.append(combo)
+            
+            #gene_repeat+SpacerRC     
+            combo = gene + '_repeat+spacerRC\t' + rpt + spacerRC
+            out.write(combo + '\n')            
+            space.append(combo)
+            
+            #gene_Spacer+repeatRC     
+            combo = gene + '_spacer+repeatRC\t' + spacer + rptRC
+            out.write(combo + '\n')            
+            space.append(combo) 
+            
+            #gene_repeatRC+spacer    
+            combo = gene + '_repeatRC+spacer\t' + rptRC + spacer
+            out.write(combo + '\n')            
+            space.append(combo)
+            
+            #gene_SpacerRC+repeatRC  
+            combo = gene + '_spacerRC+repeatRC\t' + spacerRC + rptRC
+            out.write(combo + '\n')
+            space.append(combo) 
+            
+            #gene_repeatRC+SpacerRC  
+            combo = gene + '_repeatRC+spacerRC\t' + rptRC + spacerRC
+            out.write(combo + '\n')            
+            space.append(combo)
+    f.close()
+    out.close()
+    return space
+
 def getRepeat(gene_list):
     """getRepeat
 
@@ -853,7 +925,7 @@ def main():
         print("Optional arguments:")
         print("\t-d:  print a detailed description of the program.\n\n")
         print("Intermediate files are moved to the 'other_files' directory when finished")
-        print("\nOriginal FASTA files are moved to the 'fasta_files' directory when finished")
+        print("\nOriginal bam files are moved to the 'bam_files' directory when finished")
         print("\nThere are multiple outputs, each named by remove the .fasta and adding text:")
         print("\t_search_results.txt = Initial search results file")
         print("\t_gene_combinations_per_read.txt = list of genes with matches to each read")
@@ -884,16 +956,17 @@ def main():
             for bam in f:
                 BAM_files.append(bam.rstrip())
     else:
-        print("Please provide a file with GFF names, one per line.\n")
+        print("Please provide a file with bam file names, one per line.\n")
         cmdparser.print_help()
         sys.exit(1)
 
     # create fasta files from bam file, store in list
-    #Fasta_files = makeFasta(BAM_files)#################################
+    Fasta_files = makeFasta(BAM_files)#################################
+    print(Fasta_files)
     ## TESTING ONLY
-    Fasta_files = ['xaa.fasta', 'xab.fasta', 'xac.fasta', 'xad.fasta']
+    ##Fasta_files = ['xaa.fasta', 'xab.fasta', 'xac.fasta', 'xad.fasta']
 
-    # retrieve spacer and repeat file
+    # retrieve Spacer/repeat file
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
     else:
@@ -905,8 +978,7 @@ def main():
     number_of_files = len(Fasta_files)
     print(f"{number_of_files} Fasta files to process.\n")    
     
-    # create an output file containing all the read lengths of the original input files 
-    '''
+    # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples    
     for fsa in Fasta_files:
         seqLen, totalReads = countLines(fsa)
@@ -916,7 +988,10 @@ def main():
             for rd in seqLen:
                 out.write(f'{rd}\n')
         out.close()
-    '''
+    
+    for k,v in readStats.items():
+        print(k, len(v))
+    
     # create new fasta files which only contain reads that have the repeats
     repeatSequence = getRepeat(gene_list)
     if repeatSequence is None:
@@ -930,8 +1005,7 @@ def main():
         argTup = tuple(argLst)
         with mp.Pool() as pool:
             res = pool.starmap(countRepeats, argTup)
-
-        
+            
     '''
     for fasta in FASTA_files:
         search( gene_list, fasta )
