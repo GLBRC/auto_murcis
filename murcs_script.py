@@ -5,58 +5,67 @@ murcs_script.py
 
 This script will count the number of times each spacer + repeat combination appears in FASTA files
 
-Input is a list of the spacer and repeat combinations and list of FASTA files to search
+Input
+-----
 
-Spacer/Repeat Combination File should be a two column, tab delimited file with the first tab
-being the name of the Spacer/Repeat combindation and the second column the sequence to search (-t):
+Spacer/repeat sequence file should be two columns, tab delimited file with the first column
+being the name of the Spacer/Repeat and the second column the sequence to search:
     
-    ID                  Seq
-    Gene_S_R_1          ATTAAGCCATGGCAGTGCAGACGATAGAGCACATAGCTAGCTATACGATAAAATCG
-    Gene_S_R_2          TTCAAAACAGCATAGCTCTAAAACATTAAGCCCCAAAAAATAGATATGAGCCACAG
+    name        sequence
+    repeat      GTTTTAGAGCTATGCTGTTTTGAATGGTCCCAAAAC
+    lpg0404a	GCAAGTTACGGATACTGTCTACAG
+    lpg0404b	GGGTGCCTTGTTCTTCCTTATCCC
     
-Fasta File should be a list with FASTA files to process in a single column, one per line (-f)
+Bam list file should be a bam file names to process in a single column, one per line (-f)  
 
-Path should be indicated as the location of the Rscript (-p)    
+Output
+------
 
 There are multiple outputs, each named by remove the .fasta and adding text:
     _search_results.txt = Initial search results file
     _gene_combinations_per_read.txt = list of genes with matches to each read
-    _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name
-    _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries written to file (position and gene name)
-    _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted by position of match relative to the start of the read (spacer order)
-    All_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible constructs and sub-constructs along with counts for each experiment
-    temp_sorted_possible_combinations.txt = intermediate file with all possible construct and sub-construct combinations
-    temp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary of all possible construct and sub-construct combinations
-    _pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with minHit of 5
-    _pairwise_allHits_correlationPlot.pdf = Correlation plot for each sample including all hits
-    _pairwise_minHit5_correlationPlot.pdf = Correlation plot for each sample with minHit of 5
+    _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by 
+    gene name
+    _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries
+      written to file (position and gene name)
+    _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted
+      by position of match relative to the start of the read (spacer order)
+    All_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible 
+      constructs and sub-constructs along with counts for each experiment
+    temp_sorted_possible_combinations.txt = intermediate file with all possible
+      construct and sub-construct combinations
+    temp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary
+      of all possible construct and sub-construct combinations
+    _pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with 
+      minHit of 5
+    _pairwise_allHits_correlationPlot.pdf = Correlation plot for each sample 
+      including all hits
+    _pairwise_minHit5_correlationPlot.pdf = Correlation plot for each sample 
+      with minHit of 5
     
-Requirements:
+Requirements
+------------
+    Python 3
     Python modules:
-        argparse
-        SeqIO from BioPython
-        Combinations from Itertools
-        os
-        re
-        subprocess
-        sys
-        time
+        BioPython
+    R
     R libraries:
         ggplot2
         reshape2
         circlize
 
-Script must be run in the same directory as the FASTA files and Spacer/Repeat Combindation File
-Requires Python3 and R
+Script must be run in the same directory as the bam and Spacer/Repeat Combindation files.
 
-This has been tested on MacOS 12.6. It may require modification to run on other operating systems
+Script tested on MacOS 12.6 and CentOS Linux 7(Core). 
+It may require modification to run on other operating systems
 
 @author: kmyers2@wisc.edu
 """
+from Bio.Seq import Seq
 from Bio import SeqIO
-from contextlib import redirect_stderr
-from itertools import combinations
 import argparse
+import itertools                                  # for zip_longest and combinations
+import multiprocessing as mp
 import pyfastx
 import pysam
 import os
@@ -746,34 +755,81 @@ def countLines(fasta):
     numReads = len(fsa.lengths)
     return seqLens, numReads    
 
-def processFasta(FastaLst):
-    """processFasta
+def countRepeats(fsaFile, repeat):
+    """countRepeats
 
-    Collect read counts, read lengths for all fasta files and write to file.
+    Determine the number of reads with repeat sequences, testing fwd & rvs orientations.
+    Separate reads into new file for further processing & collect read lengths.
 
     Parameters
     ----------
     FastaLst : list
         List containing the fasta files to process (previously converted from input bams)    
+    repeats : list
+        Repeat list, used for searching.
     """    
-    pass   
+    #for fsaFile in FastaLst:
+    repeatsFile = re.sub('.fasta', '-repeat_match.fasta', fsaFile)
+    readLenFile = re.sub('.fasta', '-repeats_match_read_lengths.txt', fsaFile)
+    dat = pyfastx.Fasta(fsaFile,full_index=True)    # create a fasta object
+    # open file to write the reads which contain the repeats, (filter out reads w/o repeat i.e. junk)
+    with open(repeatsFile, 'w') as out, open(readLenFile, 'w') as lout:
+        for i in range(dat.count(1)):           
+            for rpt in repeat:
+                if dat[i].search(rpt):
+                    out.write(f'>{dat[i].name}\n')
+                    out.write(f'{dat[i].seq}\n')
+                    lout.write(f'{len(dat[i].seq)}\n')
+    out.close()                 
+    
+def getRepeat(gene_list):
+    """getRepeat
 
+    Extract the repeat sequence from the spacer sequence and repeat file.
 
-        
+    searching for a line that looks like:
+
+    repeat	GTTTTAGAGCTATGCTGTTTTGAATGGTCCCAAAAC
+    
+    Parameters
+    ----------
+    gene_list : str
+        File containg the repeat sequence.
+    
+    """
+    fwd = None
+    rvs = None 
+    with open(gene_list, 'r') as f:
+        f.readline()              # skip header
+        for ln in f:
+            if ln.startswith('repeat'):
+                fwd = ln.rstrip().split('\t')[1]
+                rvs = str(Seq(fwd).reverse_complement())
+                break
+    f.close()
+    repeat = [fwd, rvs]
+    return repeat        
     
 def main():
    
-    cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in FASTA files for NIH Project and produce organized files for further analysis along with different plots.",
-                                        usage='%(prog)s -f <list of FASTAs to process> -t <spacer and repeat combinations> -p <path to GitHub Repo and Rscript> [optional arguments: -d]', prog='count_spacers_NIH.py'  )                                  
-    cmdparser.add_argument('-f', '--file',  action='store', dest='FILE' , help='File with all the bam files to process, one per line.', metavar='')
-    cmdparser.add_argument('-t', '--targets',  action='store', dest='TARGETS' , help='spacer + repeat targets for each gene', metavar='')
-    cmdparser.add_argument('-p', '--path', action='store', dest='PATH', help='Path to location of GitHub Repo and Python and R Scripts', metavar='')
-    cmdparser.add_argument('-d', '--detail',  action='store_true', dest='DETAIL' , help='Print a more detailed description of the program.')
+    cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
+                                       " NIH Project and produce organized files for further analysis along with different plots.",
+                                        usage='%(prog)s -f <list of bam files to process> -t' 
+                                        '<spacer and repeat combinations> -p <path to GitHub Repo and Rscript> [optional arguments: -d]',
+                                          prog='count_spacers_NIH.py'  )                                  
+    cmdparser.add_argument('-f', '--file',  action='store', dest='FILE',
+                            help='File with all the bam files to process, one per line.', metavar='')
+    cmdparser.add_argument('-t', '--targets',  action='store', dest='TARGETS',
+                            help='spacer + repeat targets for each gene', metavar='')
+    cmdparser.add_argument('-p', '--path', action='store', dest='PATH', 
+                           help='Path to location of GitHub Repo and Python and R Scripts', metavar='')
+    cmdparser.add_argument('-d', '--detail',  action='store_true', dest='DETAIL',
+                            help='Print a more detailed description of the program.')
     cmdResults = vars(cmdparser.parse_args())
     
-    cwd   = os.getcwd()
+    cwd   = os.getcwd()     # store current working dir
     
-    start = time.time() #start timer to see how long the program takes to run
+    start = time.time()     # start timer to see how long the program takes to run
     
     # if no args print help
     if len(sys.argv) == 1:
@@ -783,14 +839,16 @@ def main():
 
     if cmdResults['DETAIL']:
         print("\nmurcs_script.py")
-        print("\nPurpose: Count spacers + repeat in FASTA files for NIH Project and produce organized files for further analysis along with different plots.")
-        print("\nInput: A text file with each FASTA to process and a list of all spacer+repeat sequences and names.")
-        print("\nPlease use a dedicated directory for running this pipeline.")
-        print("Generate the directory and copy the FASTA and spacer+repeat files to the new directory.")
-        print("Produce FASTA input file by running ls *fasta > fasta_input.txt")
+        print("\nPurpose: Count spacers + repeat in bam files for NIH Project and ")
+        print("         produce organized files for further analysis along with different plots.")
+        print("\nInput: A text file with each bam file names to process and a file listing")
+        print("       all the spacer+repeat sequences and names.")
+        print("\n*** Please use a dedicated directory for running this pipeline.***\n")
+        print("Create the directory and copy the FASTA and spacer+repeat files to the new directory.")
+        print("Produce bam input file by running ls *.bam > bam_input.txt\n")
         print("Required parameters:")
-        print("\t1) -f fasta_input.txt")
-        print("\t2) -t spacer_repeat_seq.txt\n")
+        print("\t1) -f bam_input.txt")
+        print("\t2) -t spacer_repeat_seq.txt")
         print("\t3) -p path_to_scripts\n")
         print("Optional arguments:")
         print("\t-d:  print a detailed description of the program.\n\n")
@@ -800,17 +858,22 @@ def main():
         print("\t_search_results.txt = Initial search results file")
         print("\t_gene_combinations_per_read.txt = list of genes with matches to each read")
         print("\t_gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name")
-        print("\t_gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries written to file (position and gene name")
-        print("\t_gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted by position of match relative to the start of the read (spacer order)")
+        print("\t_gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries")
+        print("\t  written to file (position and gene name")
+        print("\t_gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted")
+        print("\t  by position of match relative to the start of the read (spacer order)\n")
         print("Three output files are for all experiments combined:")
-        print("\tAll_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible constructs and sub-constructs along with counts for each experiment")
-        print("\temp_sorted_possible_combinations.txt = intermediate file with all possible construct and sub-construct combinations")
-        print("\ttemp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary of all possible construct and sub-construct combinations")
+        print("\tAll_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible") 
+        print("\t  constructs and sub-constructs along with counts for each experiment")
+        print("\temp_sorted_possible_combinations.txt = intermediate file with all possible") 
+        print("\t  construct and sub-construct combinations")
+        print("\ttemp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary") 
+        print("\t  of all possible construct and sub-construct combinations")
         print("\t_pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with minHit of 5")
         print("\t_pairwise_allHits_correlationPlot.pdf = Correlation plot for each sample including all hits")
         print("\t_pairwise_minHit5_correlationPlot.pdf = Correlation plot for each sample with minHit of 5")
-        print("\n")
-        print("See Kevin Myers (kmyers2@wisc.edu) with any questions.\n\n")
+        print("")
+        print("See Kevin Myers (kmyers2@wisc.edu) with any questions.\n")
         sys.exit(1)
     
     BAM_files   = []   # hold list of initial input bam files to process
@@ -826,9 +889,9 @@ def main():
         sys.exit(1)
 
     # create fasta files from bam file, store in list
-    FASTA_files = makeFasta(BAM_files)#################################
+    #Fasta_files = makeFasta(BAM_files)#################################
     ## TESTING ONLY
-    #Fasta_files = ['Amoeba_output_A2.ccs.fasta']
+    Fasta_files = ['xaa.fasta', 'xab.fasta', 'xac.fasta', 'xad.fasta']
 
     # retrieve spacer and repeat file
     if cmdResults['TARGETS'] is not None:
@@ -838,30 +901,37 @@ def main():
         cmdparser.print_help()
         sys.exit(1)
 
-    '''    
-    if cmdResults['PATH'] is not None:
-        path = cmdResults['PATH']
-    else:
-        print("Please provide a path to the Python and R scripts (GitHub Repo).\n")
-        cmdparser.print_help()
-        sys.exit(1)
-    '''
     # report number of fasta files to process
     number_of_files = len(Fasta_files)
-    print(f"There are {number_of_files} Fasta files to process.\n")    
-    '''
+    print(f"{number_of_files} Fasta files to process.\n")    
+    
     # create an output file containing all the read lengths of the original input files 
+    '''
     readStats    = {}          # store a list of all lengths for all samples    
-    orig_readLen = []          # 
     for fsa in Fasta_files:
         seqLen, totalReads = countLines(fsa)
-        if fastq not in readStats:
-            readStats[fastq] = seqLen
-        with open(re.sub('.fasta', '_read_lengths.txt',fsa)) as out:
-            for rd in totalReads:
+        if fsa not in readStats:
+            readStats[fsa] = seqLen
+        with open(re.sub('.fasta', '_read_lengths.txt',fsa), 'w') as out:
+            for rd in seqLen:
                 out.write(f'{rd}\n')
         out.close()
-    '''    
+    '''
+    # create new fasta files which only contain reads that have the repeats
+    repeatSequence = getRepeat(gene_list)
+    if repeatSequence is None:
+        print('\t**** Error repeat sequence not found in spacer repeat file. ')
+        cmdparser.print_help()
+        sys.exit(1)
+    else:
+        argLst = []
+        for fsa in Fasta_files:
+            argLst.append((fsa, repeatSequence))
+        argTup = tuple(argLst)
+        with mp.Pool() as pool:
+            res = pool.starmap(countRepeats, argTup)
+
+        
     '''
     for fasta in FASTA_files:
         search( gene_list, fasta )
