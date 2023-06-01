@@ -63,16 +63,81 @@ It may require modification to run on other operating systems
 """
 from Bio.Seq import Seq
 from Bio import SeqIO
+from datetime import date
 import argparse
 import itertools                                  # for zip_longest and combinations
+import logging 
 import multiprocessing as mp
 import pyfastx
 import pysam
 import os
+import pwd
 import re
 import subprocess
 import sys
 import time
+
+def ngrams(seq, n=60):
+    """ngrams
+    
+    Create a list of ngrams using a DNA sequence string.
+
+    Parameters
+    ----------
+    seq : str
+        DNA sequence 
+    n : int
+        ngram size, defaults to 60.
+
+    Returns
+    -------
+    seqNgrams : list
+        list of all ngrams in seq.  
+
+    ngram recipe from: https://bergvca.github.io/2017/10/14/super-fast-string-matching.html
+    """
+    ngrams = zip(*[seq[i:] for i in range(n)])
+    return [''.join(ngram) for ngram in ngrams]
+
+def searchTwo(geneTags, fasta, sizeSprRpt):
+    """search
+
+    Search for matches to every spacer+repeat combination and organize the
+    output and indicate number of times each construct and sub-construct
+    are found in the data.
+    
+    Parameters
+    ----------
+    geneTags : list
+        list with each possible spacer+repeat combination
+    fasta : str 
+        fasta file from PacBio CCS processing to search
+    sizeSprRpt : int
+        Expected length of space repeat.  
+    Returns
+    -------
+    _search_results.txt = Initial search results file
+    _gene_combinations_per_read.txt = list of genes with matches to each read
+    _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name
+    _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries written to file (position and gene name)
+    _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted by position of match relative to the start of the read (spacer order)
+
+    """
+    search_terms = {}
+    out_searchResults = fasta.replace('.fasta', '_search_results.txt')
+    out_geneCombo = fasta.replace('.fasta', '_gene_combinations_per_read.txt')
+    out_geneCombo_sorted = fasta.replace('.fasta', '_gene_combinations_per_read_SortedByGeneName.txt')
+    
+    print(f"Working on {fasta} now…\n")
+   
+    with open(fasta, 'r') as f, open(out_searchResults, 'w') as sr:
+        for header, read in itertools.zip_longest(*[f]*2):
+            header = re.sub('>', '', header.rstrip())
+            read   = read.rstrip()
+            for pos, ngram in enumerate(ngrams(read, sizeSprRpt)):
+                if ngram in geneTags:
+                    outLine = f'{header}\t{geneTags[ngram]}\t{pos}\n'
+                    sr.write(outLine)
 
 def search( gene_list, fasta ):
     """search
@@ -84,7 +149,7 @@ def search( gene_list, fasta ):
     Parameters
     ----------
     gene_list : list
-        text file with each possible spacer+repeat combination
+        list with each possible spacer+repeat combination
     fasta : str 
         fasta file from PacBio CCS processing to search
 
@@ -797,12 +862,12 @@ def geneSpacerCombinations(spcrRpt):
         Spacer/repeat sequence file provided by user.
     Returns
     -------
-    comboLst : list
-        list of all spacer/repeat combinations.
+    spacerRepeats : dictionary
+        key = spacer/repeat value = gene name with spacer repeat order
     """
-    space = []
+    spacerRepeats = {}
     with open(spcrRpt, 'r') as f, open('gene_spacer_combinations.txt', 'w') as out:
-        f.readline()      # skip header
+        f.readline()                                 # skip header
         rpt = f.readline().rstrip().split('\t')[1]   # grab repeat, 1st row
         rptRC = str(Seq(rpt).reverse_complement())
         
@@ -811,48 +876,72 @@ def geneSpacerCombinations(spcrRpt):
             spacerRC = str(Seq(spacer).reverse_complement())    
             
             # generate spacer repeat combinations
-            #gene_Spacer+repeat  
-            combo = gene + '_spacer+repeat\t' + spacer + rpt
+            #gene_Spacer+repeat
+            name   =  gene + '_spacer+repeat\t' 
+            target = spacer + rpt
+            combo  = name + target
             out.write(combo + '\n')
-            space.append(combo)
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name
             
             #gene_repeat+spacer  
-            combo = gene + '_repeat+spacer\t' + rpt + spacer
+            name   = gene + '_repeat+spacer\t'
+            target = rpt + spacer
+            combo  = name + target
             out.write(combo + '\n')
-            space.append(combo)
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name            
             
-            #gene_SpacerRC+repeat    
-            combo = gene + '_spacerRC+repeat\t' + spacerRC + rpt
+            #gene_SpacerRC+repeat
+            name   = gene + '_spacerRC+repeat\t'
+            target = spacerRC + rpt
+            combo  = name + target
             out.write(combo + '\n')
-            space.append(combo)
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name            
             
             #gene_repeat+SpacerRC     
-            combo = gene + '_repeat+spacerRC\t' + rpt + spacerRC
+            name   = gene + '_repeat+spacerRC\t'
+            target = rpt + spacerRC
+            combo  =  name + target
             out.write(combo + '\n')            
-            space.append(combo)
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name
             
-            #gene_Spacer+repeatRC     
-            combo = gene + '_spacer+repeatRC\t' + spacer + rptRC
+            #gene_Spacer+repeatRC 
+            name   = gene + '_spacer+repeatRC\t'    
+            target = spacer + rptRC
+            combo =  name + target
             out.write(combo + '\n')            
-            space.append(combo) 
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name
             
-            #gene_repeatRC+spacer    
-            combo = gene + '_repeatRC+spacer\t' + rptRC + spacer
+            #gene_repeatRC+spacer 
+            name   = gene + '_repeatRC+spacer\t'   
+            target = rptRC + spacer
+            combo  = name + target
             out.write(combo + '\n')            
-            space.append(combo)
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name
             
             #gene_SpacerRC+repeatRC  
-            combo = gene + '_spacerRC+repeatRC\t' + spacerRC + rptRC
+            name   = gene + '_spacerRC+repeatRC\t'
+            target = spacerRC + rptRC
+            combo  = name + target
             out.write(combo + '\n')
-            space.append(combo) 
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name
             
             #gene_repeatRC+SpacerRC  
-            combo = gene + '_repeatRC+spacerRC\t' + rptRC + spacerRC
+            name   = gene + '_repeatRC+spacerRC\t'
+            target = rptRC + spacerRC
+            combo  = name + target
             out.write(combo + '\n')            
-            space.append(combo)
+            if target not in spacerRepeats:
+                spacerRepeats[target] = name
     f.close()
     out.close()
-    return space
+    return spacerRepeats
 
 def getRepeat(gene_list):
     """getRepeat
@@ -947,28 +1036,42 @@ def main():
         print("")
         print("See Kevin Myers (kmyers2@wisc.edu) with any questions.\n")
         sys.exit(1)
-    
+        
+    # setup logging 
+    user = pwd.getpwuid(os.getuid())[0]                # get user login name
+    logging.basicConfig(filename="murcs_script-Job.log", encoding='utf-8', level=logging.INFO)
+    today = date.today()
+    logging.info(f' Date run: {today}')
+    logging.info(f' Run by {user}')    
+
     BAM_files   = []   # hold list of initial input bam files to process
     
     if cmdResults['FILE'] is not None:
         bamfile = cmdResults['FILE']
+        logging.info(f' Input bam file: "{bamfile}"')
         with open(bamfile, 'r') as f:
             for bam in f:
                 BAM_files.append(bam.rstrip())
+        logging.info(' List of input bam files: ')
+        logging.info(BAM_files)
     else:
         print("Please provide a file with bam file names, one per line.\n")
         cmdparser.print_help()
         sys.exit(1)
-
+    
     # create fasta files from bam file, store in list
-    Fasta_files = makeFasta(BAM_files)#################################
-    print(Fasta_files)
+    #Fasta_files = makeFasta(BAM_files)                          ##########################################################################
+    
     ## TESTING ONLY
-    ##Fasta_files = ['xaa.fasta', 'xab.fasta', 'xac.fasta', 'xad.fasta']
+    Fasta_files = ['Macro_input_B1.ccs-subset.fasta', 'Macro_output_B2.ccs-subset.fasta']
+    logging.info(' Created the following fasta files:')
+    logging.info(Fasta_files)
 
     # retrieve Spacer/repeat file
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
+        geneSpacerDict = geneSpacerCombinations(gene_list)
+        logging.info(f' Using the following gene spacer file "{gene_list}"')
     else:
         print("Please provide a file spacer + repeat sequences.\n")
         cmdparser.print_help()
@@ -988,14 +1091,17 @@ def main():
             for rd in seqLen:
                 out.write(f'{rd}\n')
         out.close()
-    
-    for k,v in readStats.items():
+
+    # TESTING     
+    for k,v in readStats.items():                       #############################################################
         print(k, len(v))
     
     # create new fasta files which only contain reads that have the repeats
     repeatSequence = getRepeat(gene_list)
+    '''
     if repeatSequence is None:
         print('\t**** Error repeat sequence not found in spacer repeat file. ')
+        logging.ERROR('**** Error repeat sequence not found in spacer repeat file. EXITING')
         cmdparser.print_help()
         sys.exit(1)
     else:
@@ -1005,11 +1111,13 @@ def main():
         argTup = tuple(argLst)
         with mp.Pool() as pool:
             res = pool.starmap(countRepeats, argTup)
-            
+    '''        
+    # get the length of spacerRepeat
+    lengthSpacerRpt = len(list(geneSpacerDict.keys())[0])
+
+    for fasta in Fasta_files:
+        searchTwo(geneSpacerDict, fasta, lengthSpacerRpt)
     '''
-    for fasta in FASTA_files:
-        search( gene_list, fasta )
-    
     print("Combining all the experimental count files together…\n")
     
     combineCountFiles( cwd )
@@ -1035,6 +1143,7 @@ def main():
     print(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
     print("Please email Kevin Myers (kmyers2@wisc.edu) with any questions.\n")
     '''
+    
         
 if __name__ == "__main__":
     main()
