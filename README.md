@@ -14,7 +14,7 @@ For questions, please email `kmyers2 at wisc dot edu`.
 
  - Determine the read lengths in the the `ccs.bam` files using `samtools` and `awk`:
 	
-	`samtools view Sample1.ccs.bam | awk '{print length($10)}' > Sample1.ccs_read_lengths.txt`
+	`samtools view Sample1.ccs.bam | awk '{print length($10)}' > Sample1.ccs_read_lengths.txt` (just read length, 1 per line)
 
  - Convert the `bam` file to a `fasta` file for future analysis using `samtools`:
 
@@ -22,7 +22,7 @@ For questions, please email `kmyers2 at wisc dot edu`.
 
  - Determine the total number of reads using `grep`:
 
-	`grep ">" Sample1.ccs.fasta -c`
+	`grep ">" Sample1.ccs.fasta -c`   # count number of input reads
 
  - Determine the number of reads with a repeat sequence, testing both forward and reverse orientations, using `grep` and `bioawk`:
 
