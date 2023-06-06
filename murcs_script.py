@@ -77,6 +77,22 @@ import subprocess
 import sys
 import time
 
+def countGenes():
+    """countGenes
+
+    Count genes (spacer/Repeat hits) for each sample.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    
+    
+    
+    """
+    pass
+
 def ngrams(seq, n=60):
     """ngrams
     
@@ -125,19 +141,47 @@ def searchTwo(geneTags, fasta, sizeSprRpt):
     """
     search_terms = {}
     out_searchResults = fasta.replace('.fasta', '_search_results.txt')
-    out_geneCombo = fasta.replace('.fasta', '_gene_combinations_per_read.txt')
-    out_geneCombo_sorted = fasta.replace('.fasta', '_gene_combinations_per_read_SortedByGeneName.txt')
+    out_geneCombo     = fasta.replace('.fasta', '_gene_combinations_per_read.txt')
+    out_geneOrder     = fasta.replace('.fasta', '_gene-order_byRead.txt')
     
     print(f"Working on {fasta} now…\n")
-   
-    with open(fasta, 'r') as f, open(out_searchResults, 'w') as sr:
+    # open fasta file to process and output files 
+    with open(fasta, 'r') as f, open(out_searchResults, 'w') as sr, open(out_geneCombo,'w') as cout, open(out_geneOrder, 'w') as gout:
+        sr.write('Read_name\tGenes\tPositions\n')
+        cout.write('Read_name\tGenes\n')
+        gout.write('Read_name\tGene_order\n')
+        geneCombos = {}                      # collate all genes for a particular read
+        geneOrder = {}                       # key= read_name value= list of spacerRepeats
         for header, read in itertools.zip_longest(*[f]*2):
-            header = re.sub('>', '', header.rstrip())
+            header = re.sub('>', '', header.rstrip())                 # read name 
             read   = read.rstrip()
+            # search for ngrams 
             for pos, ngram in enumerate(ngrams(read, sizeSprRpt)):
                 if ngram in geneTags:
                     outLine = f'{header}\t{geneTags[ngram]}\t{pos}\n'
                     sr.write(outLine)
+                    # gather reads with gene names
+                    if header not in geneCombos:
+                        geneCombos[header] = set()
+                        geneCombos[header].add(geneTags[ngram].split('_')[0])
+                    else:
+                        geneCombos[header].add(geneTags[ngram].split('_')[0])
+                    # gather reads and full spacer/Repeat name
+                    if header not in geneOrder:
+                        geneOrder[header] = []
+                        geneOrder[header].append(geneTags[ngram].split('_')[0])
+                    else:
+                        geneOrder[header].append(geneTags[ngram].split('_')[0])
+                   
+        # write gene combinations by read to file
+        for readHdr in geneCombos.keys():
+            cout.write(f'{readHdr}\t{",".join(list(geneCombos[readHdr]))}\n')
+        # write gene order by read information to file
+        for readHdr in geneOrder.keys():
+            # remove gene name duplicates while maintaining order, using a dictionary
+            geneLst = list(dict.fromkeys(geneOrder[readHdr]))  # get an ordered uniq list of gene names
+            gout.write(f'{readHdr}\t{",".join(geneLst)}\n')
+
 
 def search( gene_list, fasta ):
     """search
@@ -877,7 +921,7 @@ def geneSpacerCombinations(spcrRpt):
             
             # generate spacer repeat combinations
             #gene_Spacer+repeat
-            name   =  gene + '_spacer+repeat\t' 
+            name   =  gene + '_spacer+repeat' 
             target = spacer + rpt
             combo  = name + target
             out.write(combo + '\n')
@@ -885,7 +929,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name
             
             #gene_repeat+spacer  
-            name   = gene + '_repeat+spacer\t'
+            name   = gene + '_repeat+spacer'
             target = rpt + spacer
             combo  = name + target
             out.write(combo + '\n')
@@ -893,7 +937,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name            
             
             #gene_SpacerRC+repeat
-            name   = gene + '_spacerRC+repeat\t'
+            name   = gene + '_spacerRC+repeat'
             target = spacerRC + rpt
             combo  = name + target
             out.write(combo + '\n')
@@ -901,7 +945,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name            
             
             #gene_repeat+SpacerRC     
-            name   = gene + '_repeat+spacerRC\t'
+            name   = gene + '_repeat+spacerRC'
             target = rpt + spacerRC
             combo  =  name + target
             out.write(combo + '\n')            
@@ -909,7 +953,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name
             
             #gene_Spacer+repeatRC 
-            name   = gene + '_spacer+repeatRC\t'    
+            name   = gene + '_spacer+repeatRC'    
             target = spacer + rptRC
             combo =  name + target
             out.write(combo + '\n')            
@@ -917,7 +961,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name
             
             #gene_repeatRC+spacer 
-            name   = gene + '_repeatRC+spacer\t'   
+            name   = gene + '_repeatRC+spacer'   
             target = rptRC + spacer
             combo  = name + target
             out.write(combo + '\n')            
@@ -925,7 +969,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name
             
             #gene_SpacerRC+repeatRC  
-            name   = gene + '_spacerRC+repeatRC\t'
+            name   = gene + '_spacerRC+repeatRC'
             target = spacerRC + rptRC
             combo  = name + target
             out.write(combo + '\n')
@@ -933,7 +977,7 @@ def geneSpacerCombinations(spcrRpt):
                 spacerRepeats[target] = name
             
             #gene_repeatRC+SpacerRC  
-            name   = gene + '_repeatRC+spacerRC\t'
+            name   = gene + '_repeatRC+spacerRC'
             target = rptRC + spacerRC
             combo  = name + target
             out.write(combo + '\n')            
@@ -1060,10 +1104,10 @@ def main():
         sys.exit(1)
     
     # create fasta files from bam file, store in list
-    #Fasta_files = makeFasta(BAM_files)                          ##########################################################################
+    Fasta_files = makeFasta(BAM_files)                          ##########################################################################
     
     ## TESTING ONLY
-    Fasta_files = ['Macro_input_B1.ccs-subset.fasta', 'Macro_output_B2.ccs-subset.fasta']
+    #Fasta_files = ['Macro_input_B1.ccs-subset.fasta', 'Macro_output_B2.ccs-subset.fasta']
     logging.info(' Created the following fasta files:')
     logging.info(Fasta_files)
 
@@ -1098,7 +1142,7 @@ def main():
     
     # create new fasta files which only contain reads that have the repeats
     repeatSequence = getRepeat(gene_list)
-    '''
+    
     if repeatSequence is None:
         print('\t**** Error repeat sequence not found in spacer repeat file. ')
         logging.ERROR('**** Error repeat sequence not found in spacer repeat file. EXITING')
@@ -1111,12 +1155,18 @@ def main():
         argTup = tuple(argLst)
         with mp.Pool() as pool:
             res = pool.starmap(countRepeats, argTup)
-    '''        
+          
     # get the length of spacerRepeat
     lengthSpacerRpt = len(list(geneSpacerDict.keys())[0])
 
+    argLst = []
     for fasta in Fasta_files:
-        searchTwo(geneSpacerDict, fasta, lengthSpacerRpt)
+        argLst.append((geneSpacerDict, fasta, lengthSpacerRpt))
+    argTup = tuple(argLst)
+    with mp.Pool() as pool:
+        res = pool.starmap(searchTwo, argTup)
+    
+    #searchTwo(geneSpacerDict, fasta, lengthSpacerRpt)
     '''
     print("Combining all the experimental count files together…\n")
     
