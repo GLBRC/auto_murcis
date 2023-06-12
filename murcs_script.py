@@ -64,10 +64,13 @@ It may require modification to run on other operating systems
 from Bio.Seq import Seq
 from Bio import SeqIO
 from datetime import date
+from functools import reduce
 import argparse
+import glob 
 import itertools                                  # for zip_longest and combinations
 import logging 
 import multiprocessing as mp
+import pandas as pd                                # use data frames for merging counts
 import pyfastx
 import pysam
 import os
@@ -82,16 +85,32 @@ def countGenes():
 
     Count genes (spacer/Repeat hits) for each sample.
 
-    Parameters
-    ----------
-
     Returns
     -------
-    
-    
-    
+    pandas data frame    
     """
-    pass
+    cwd = os.getcwd()
+    dfLst = []
+
+    # get a list of files to process, by globbing *-subset_gene_combinations_per_read.txt files
+    for file in glob.glob(cwd + '/*-subset_gene_combinations_per_read.txt'):
+        cnt = {}   # key = spacer/Repeat value = count
+        sample = os.path.basename(re.sub('-subset_gene_combinations_per_read.txt', '', file))
+        with open(file, 'r') as f:
+            f.readline()   # skip header
+            for ln in f:
+                read, genes = ln.rstrip().split('\t')
+                if genes not in cnt:
+                    cnt[genes] = 1
+                else:
+                    cnt[genes] += 1
+
+        df = pd.DataFrame.from_dict(cnt, orient='index', columns=[sample])
+        dfLst.append(df)
+
+    data_merge = reduce(lambda left,right: pd.merge(left,right, how="outer", left_index=True, right_index=True),dfLst)
+    
+    return data_merge
 
 def ngrams(seq, n=60):
     """ngrams
@@ -1103,6 +1122,7 @@ def main():
         cmdparser.print_help()
         sys.exit(1)
     
+    """
     # create fasta files from bam file, store in list
     Fasta_files = makeFasta(BAM_files)                          ##########################################################################
     
@@ -1165,8 +1185,11 @@ def main():
     argTup = tuple(argLst)
     with mp.Pool() as pool:
         res = pool.starmap(searchTwo, argTup)
-    
     #searchTwo(geneSpacerDict, fasta, lengthSpacerRpt)
+    """
+    # count spacer/Repeats for each sample
+    countDataFrame = countGenes()
+    countDataFrame.to_csv('DF_test.txt', sep="\t")
     '''
     print("Combining all the experimental count files together…\n")
     
