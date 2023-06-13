@@ -80,6 +80,9 @@ import subprocess
 import sys
 import time
 
+# set path to script home
+dirPath = (os.path.dirname(os.path.abspath(__file__))) + '/'
+
 def countGenes():
     """countGenes
 
@@ -107,6 +110,8 @@ def countGenes():
 
         df = pd.DataFrame.from_dict(cnt, orient='index', columns=[sample])
         dfLst.append(df)
+        # write individual sample counts to file
+        df.to_csv( sample + '-spacerRepeat-CNTs.txt', sep='\t', index_label='spacer/Repeat', na_rep=0)
 
     data_merge = reduce(lambda left,right: pd.merge(left,right, how="outer", left_index=True, right_index=True),dfLst)
     
@@ -788,7 +793,7 @@ def combineCountFiles( cwd ):
         for each in final_list:
             f.write(f"{each}")
 
-def chord_correlation_plots( cwd, path_to_R ):
+def chord_correlation_plots(path_to_R):
     """chord_correlation_plots
 
     Run the Rscript to plot the Chord and Correlation plots
@@ -799,8 +804,9 @@ def chord_correlation_plots( cwd, path_to_R ):
         Chord diagrams for all samples (minHit5 only)
         Correlation charts for all samples (all and minHit5 only)
     """    
+    cwd = os.getcwd()
     program = path_to_R + '/chord_correlation_plot_script.R'
-    cmd = [ 'Rscript', program , cwd ]
+    cmd = ['Rscript', program, cwd]
     subprocess.run( cmd )  
 
 def cleanUp( cwd ):
@@ -1034,6 +1040,44 @@ def getRepeat(gene_list):
     repeat = [fwd, rvs]
     return repeat        
     
+def makePairwiseCnt():
+    """makePairsizeCnt
+
+    Generate 2 gene count tables 1) with all unidirectional pairs and 2) with each pair 
+    represented twice, i.e.  gene1,gene2 and another pair gene2,gene1 with the same count.
+
+    file expected to look like: 
+
+    spacer/Repeat   Macro_output_B2.ccs
+    lpg0026b,lpg0049a,lpg0228a,lpg1917b,lpg1917a    38
+    lpg0049a,lpg0026b,lpg0228a      422
+    lpg0281b,lpg0228a,lpg0228b,lpg0281a     580
+    lpg1658a        200
+    
+    """
+    for file in glob.glob( os.getcwd() + '/*-spacerRepeat-CNTs.txt'):
+        fname = re.sub('-spacerRepeat-CNTs.txt', '', file) +  '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
+        fname2 = re.sub('-spacerRepeat-CNTs.txt', '', file) + '_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'
+
+        with open(file, 'r') as f, open(fname, 'w') as chord, open(fname2, 'w') as corr:
+            f.readline()                                  # skip header
+            chord.write('Spacer_1\tSpacer_2\tCount\n')    # write header
+            corr.write('Spacer_1\tSpacer_2\tCount\n')     # write header
+
+            for ln in f:
+                cnt = ln.rstrip().split('\t')[1]
+                genes = ln.rstrip().split('\t')[0].split(',')
+                # we only care about pairs, skip the rest
+                if len(genes) == 2:       
+                    chord.write('\t'.join(genes) + '\t' + cnt + '\n')
+                    corr.write('\t'.join(genes) + '\t' + cnt + '\n')
+                    genes[0],genes[1] = genes[1],genes[0]
+                    corr.write('\t'.join(genes) + '\t' + cnt + '\n')
+
+        f.close()
+        chord.close()
+        corr.close()
+
 def main():
    
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
@@ -1051,8 +1095,7 @@ def main():
                             help='Print a more detailed description of the program.')
     cmdResults = vars(cmdparser.parse_args())
     
-    cwd   = os.getcwd()     # store current working dir
-    
+    cwd   = os.getcwd()     # store current working dir    
     start = time.time()     # start timer to see how long the program takes to run
     
     # if no args print help
@@ -1187,23 +1230,17 @@ def main():
         res = pool.starmap(searchTwo, argTup)
     #searchTwo(geneSpacerDict, fasta, lengthSpacerRpt)
     """
-    # count spacer/Repeats for each sample
+    # count spacer/Repeats for each sample and create a combined count table
     countDataFrame = countGenes()
-    countDataFrame.to_csv('DF_test.txt', sep="\t")
-    '''
-    print("Combining all the experimental count files together…\n")
-    
-    combineCountFiles( cwd )
-    
-    print("Plotting the Chord and Correlation plots…\n")
-    
-    if path.endswith('/'):
-        path_to_R = path[:-1]  #remove last / from path
-    else:
-        path_to_R = path
+    countDataFrame.to_csv('DF_test.txt', sep="\t", index_label='spacer/Repeat', na_rep=0) 
         
-    chord_correlation_plots( cwd, path_to_R )
+    print("Plotting the Chord and Correlation plots…\n")
+    # generate pairwise count tables
+    makePairwiseCnt()
     
+    chord_correlation_plots(dirPath)
+    
+    '''
     print("Let's clean up and get out of here!\n")
     
     cleanUp( cwd )
