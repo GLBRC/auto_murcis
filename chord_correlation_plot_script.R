@@ -9,15 +9,15 @@
 # Script will import the files, make the plots, write the plots to the file in the same directory
 # This script has been tested on MacOS 12.6. Modification may be required to run on other operating systems
 # Author:  kmyers2@wisc.edu
-
 library(reshape2)
 library(circlize)
 library(ggplot2)
-
+suppressPackageStartupMessages(library(circlize))
+# process command line argument
 args <- commandArgs(TRUE)
 working.dir <- args[1]
 setwd(working.dir)
-
+# set colors
 grid.col = c(lpg0059="aquamarine",lpg0086="bisque",lpg0107="blue",lpg0140="brown",
              lpg0171="brown1",lpg0246="burlywood4",lpg0404="cadetblue",lpg0439="cadetblue1",
              lpg0518="chartreuse",lpg0716="chartreuse4",lpg1099="chocolate",lpg1525="chocolate4",
@@ -30,7 +30,6 @@ grid.col = c(lpg0059="aquamarine",lpg0086="bisque",lpg0107="blue",lpg0140="brown
              lpg0621="palegreen1",lpg2733="royalblue1",lpg2806="seagreen1",lpg1702="purple1")
 
 #Plot chord plots using files from murcs_script.py
-
 chord_files <- list.files(path = working.dir, pattern = "spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt")
 for(i in chord_files){
   sample_name <- strsplit(i, split='.ccs')[[1]][1]
@@ -52,7 +51,6 @@ for(i in chord_files){
 }
 
 #Plot correlation plots using files from murcs_script.py
-
 correlation_files <- list.files(path = working.dir, pattern = "spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt")
 
 for(i in correlation_files){
