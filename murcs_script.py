@@ -96,9 +96,9 @@ def countGenes():
     dfLst = []
 
     # get a list of files to process, by globbing *-subset_gene_combinations_per_read.txt files
-    for file in glob.glob(cwd + '/*-subset_gene_combinations_per_read.txt'):
+    for file in glob.glob(cwd + '/*-gene_combinations_per_read.txt'):
         cnt = {}   # key = spacer/Repeat value = count
-        sample = os.path.basename(re.sub('-subset_gene_combinations_per_read.txt', '', file))
+        sample = os.path.basename(re.sub('-gene_combinations_per_read.txt', '', file))
         with open(file, 'r') as f:
             f.readline()   # skip header
             for ln in f:
@@ -139,7 +139,7 @@ def ngrams(seq, n=60):
     ngrams = zip(*[seq[i:] for i in range(n)])
     return [''.join(ngram) for ngram in ngrams]
 
-def searchTwo(geneTags, fasta, sizeSprRpt):
+def search(geneTags, fasta, sizeSprRpt):
     """search
 
     Search for matches to every spacer+repeat combination and organize the
@@ -204,447 +204,7 @@ def searchTwo(geneTags, fasta, sizeSprRpt):
         for readHdr in geneOrder.keys():
             # remove gene name duplicates while maintaining order, using a dictionary
             geneLst = list(dict.fromkeys(geneOrder[readHdr]))  # get an ordered uniq list of gene names
-            gout.write(f'{readHdr}\t{",".join(geneLst)}\n')
-
-
-def search( gene_list, fasta ):
-    """search
-
-    Search for matches to every spacer+repeat combination and organize the
-    output and indicate number of times each construct and sub-construct
-    are found in the data.
-    
-    Parameters
-    ----------
-    gene_list : list
-        list with each possible spacer+repeat combination
-    fasta : str 
-        fasta file from PacBio CCS processing to search
-
-    Returns
-    -------
-    _search_results.txt = Initial search results file
-    _gene_combinations_per_read.txt = list of genes with matches to each read
-    _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name
-    _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries written to file (position and gene name)
-    _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted by position of match relative to the start of the read (spacer order)
-
-    """
-    search_terms = {}
-    out_searchResults = fasta.replace('.fasta', '_search_results.txt')
-    out_geneCombo = fasta.replace('.fasta', '_gene_combinations_per_read.txt')
-    out_geneCombo_sorted = fasta.replace('.fasta', '_gene_combinations_per_read_SortedByGeneName.txt')
-    
-    print(f"Working on {fasta} now…\n")
-
-# Read in Spacer + Repeat list and write to dictionary
-
-    with open(gene_list, 'r') as f:
-        for _ in range(1):
-            next(f)
-        for line in f:
-            (k, v) = line.split()
-            search_terms[k]=v
-
-# Using Biopython, read in sequencing FASTA file and write to dictionary
-    
-    seq_dict = {rec.id : rec.seq for rec in SeqIO.parse(fasta, 'fasta')}
-
-# Search for matches to Spacer + Repeat combinations in the FASTA file
-# Report read name, gene (spacer) name, and position of the start of the 
-# Spacer + Repeat matches realative to the start of the sequence.
-
-    search_results = []
-    for key,value in search_terms.items():
-        for key2,value2 in seq_dict.items():
-            if re.search(str(value), str(value2)):
-                position = re.search(str(value), str(value2)).start()
-                search_results.append(f"{key2}\t{key}\t{position}\n")
-            else:
-                continue
-            #if value in value2:
-            #   search_results.append(f"{key2}\t{key}\n")           
-   
- # Write results to file for notes and for future use in the script   
-   
-    with open(out_searchResults, 'w') as f:
-        f.write("Read_Name\tGenes_and_Positions\n")
-        for each in search_results:
-            f.write(each)
-
-# Read in search file, parse it, and add to dictionary
-
-    search_results_dict = {}
-    with open(out_searchResults, 'r') as f:
-        for _ in range(1):
-            next(f)
-        for line in f:
-            geneCombo = line.split('\t')[1].rstrip()
-            readName = line.split('\t')[0]
-            geneID = geneCombo.split('_')[0]
-            if readName in search_results_dict:
-                search_results_dict[readName].append(f"{geneID}\t")
-            else:
-                search_results_dict[readName]=[]
-                search_results_dict[readName].append(f"{geneID}\t")
-
-# Combine all genes for each read in a list (remove dubplicates with set)
-# write this to a file for notes
-    
-    for i in search_results_dict:
-        search_results_dict[i] = list(set(search_results_dict[i]))
-    with open(out_geneCombo, 'w') as f:
-        for key, value in search_results_dict.items():
-            f.write(f"{key}\t{value}\n")
-
-# Go through the dictionary (read name and list of genes with matches) and 
-# add to list, then edit to make it pretty. Write this to a file for notes.
- 
-    gene_combo_final = []
-    for key, val in search_results_dict.items():
-        gene_combo_final.append(f"{key}\t{val}\n")  
-    gene_combo_final2 = []
-    for line in gene_combo_final:
-        line2 = re.sub("\]", "", line)
-        line2 = re.sub("\[", "", line2)
-        line2 = re.sub("['']", "", line2)
-        line2 = line2.replace('\\t', '\t')
-        line2 = line2.replace('\t, ', ', ')
-        line2 = line2.replace('\t\n', '\n')
-        gene_combo_final2.append(line2)    
-    with open(out_geneCombo, "w") as f:
-        f.write("Read_Name\tGenes\n")
-        for each in gene_combo_final2:
-            f.write(each)
-
-# Sort the list based on gene name and write to a new list and then a file 
-            
-    sortedList = []        
-    with open(out_geneCombo, 'r') as f:
-        for _ in range(1):
-            next(f)
-        for line in f:
-            seqName = line.split('\t')[0]
-            genes = line.rstrip('\n').split('\t')[1]
-            geneList = (genes.split(', '))
-            geneList.sort()
-            sortedList.append(f"{seqName}\t{geneList}\n")
-    sortedList2 = []
-    for line in sortedList:
-        line2 = line.replace("[", "")
-        line2 = line2.replace("]", "")
-        line2 = line2.replace("'", "")
-        sortedList2.append(line2)
-
-    with open(out_geneCombo_sorted, 'w') as f:
-        f.write("Read_Name\tGenes_Sorted_By_Gene_Name\n")
-        for each in sortedList2:
-            f.write(each)
-
-# Now do the same search, but this time include the position first to sort based
-# on position from the start of the read.
-    
-    out_dictionary_to_file = fasta.replace('.fasta', '_gene_combinations_per_read_dictionary_out.txt')
-    out_geneCombo_sorted_final = fasta.replace('.fasta', '_gene_combinations_per_read_SortedBySpacerPosition.txt')
-    
-# Search for matches to Spacer + Repeat combinations in the FASTA file
-# Report read name, gene (spacer) name, and position of the start of the 
-# Spacer + Repeat matches realative to the start of the sequence.
-        
-    search_results_with_position = {}        
-    for search_term, search_seq in search_terms.items():
-        for read_name,read_seq in seq_dict.items():        
-            if re.search(str(search_seq), str(read_seq)):
-                position = re.search(str(search_seq), str(read_seq)).start()
-                gene_ID = search_term.split('_')[0]
-                position_geneID_tuple = (str(position), str(gene_ID))
-                position_geneID = ','.join(position_geneID_tuple)
-                if (read_name) in search_results_with_position:
-                    if (gene_ID) in search_results_with_position[read_name]:
-                        continue
-                    else:
-                        search_results_with_position[read_name][gene_ID] = []
-                        search_results_with_position[read_name][gene_ID].append(position_geneID)
-                else:
-                    search_results_with_position[read_name]={}
-                    if (gene_ID) in search_results_with_position[read_name]:
-                        continue
-                    else:
-                        search_results_with_position[read_name][gene_ID] = []
-                        search_results_with_position[read_name][gene_ID].append(position_geneID)
-            else:
-                continue
-
-# Write the dictionary to a file for notes
-
-    with open(out_dictionary_to_file, 'w') as f:
-        for key, val in search_results_with_position.items():
-            f.write(f"{key}\t{val}\n")
-
-# Read in dictionary file and write to a list
-            
-    pos_gene_list = []
-    with open(out_dictionary_to_file, 'r') as f:
-        for line in f:
-            seqName = line.split('\t')[0]
-            genes = line.rstrip('\n').split('\t')[1]
-            pos_gene_list.append(f"{seqName}\t{genes}\n")
-
-# Clean up the list to make it pretty and sortable by postion
-    
-    Pos_gene_list_edited = []
-    for line in pos_gene_list:
-        line2 = line.replace("{", "")
-        line2 = line2.replace("}", "")
-        line2 = line2.replace("'", "")
-        line2 = re.sub("lpg[0-9]*: ", "", line2)
-        line2 = line2.replace("[", "")
-        line2 = line2.replace("]", "")
-        Pos_gene_list_edited.append(line2)
-
-# Sort the list by position for each spacer match
-    
-    pos_gene_sorted_list = []
-    pos_gene_sorted_list_edited = []
-    for line in Pos_gene_list_edited:
-        seqName = line.split('\t')[0]
-        genes = line.rstrip('\n').split('\t')[1]
-        geneList = (genes.split(', '))
-        geneList.sort()
-        pos_gene_sorted_list.append(f"{seqName}\t{geneList}\n")
-
-# Clean up the list again, getting rid of position and leave just a list of
-# gene names, sorted by the position of the match relative to the start
-# of the read. Write this to a file.
-        
-    for line in pos_gene_sorted_list:
-        line2 = re.sub("'[0-9]*,l", "l", line)
-        line2 = line2.replace("]", "")
-        line2 = line2.replace("[", "")
-        line2 = line2.replace("'", "")
-        pos_gene_sorted_list_edited.append(line2)
-        
-    with open(out_geneCombo_sorted_final, 'w') as f:
-        f.write("Read_Name\tGene_Spacer_Sorted_By_Position_in_Read\n")
-        for each in pos_gene_sorted_list_edited:
-            f.write(each)
-            
-# Take the sorted by gene name results, import and for all constructs >2,
-# determine all possible combinations (no replacement) and then count how often
-# each construct and sub-construct has a match. Write to file
-
-# Import all constructs and write to list
-
-    gene_groups = []
-    with open(out_geneCombo_sorted, 'r') as f:
-        for line in f:
-            gene_groups.append(line.rstrip('\n').split('\t')[1])
-
-# Select only those constructs with >2 spacers and write to new list
-            
-    greater_than_2plex = []
-    for each in gene_groups:
-        if len(each) > 16:
-            greater_than_2plex.append(each)
-    greater_than_2plex = list(set(greater_than_2plex))
-
-# For each construct >2 spacers, write to dictionary key and determine all the 
-# possible combinations (no replacement) and wite as value in decending order
-# based on construct length. Then write the dictionary to a list. 
-
-    combo_Plex_Dict = {}
-    for each in greater_than_2plex:
-        combo_Plex_Dict[each]=[]
-        eachList = each.split(', ')
-        length = len(eachList)
-        plexRange = range(length-1, 0, -1)
-        for i in plexRange:
-            combo_Plex_Dict[each].append(list(combinations(eachList, i)))
-
-    combo_Plex = []
-    for key, value in combo_Plex_Dict.items():
-        combo_Plex.append(key)
-        for each in value:
-            combo_Plex.append(each)
-            
-# Write the intermediate result to a file (for records)
-
-    out_spacer_constructs_sub_first = fasta.replace('.fasta', '_all_spacer_constructs_and_subconstructs.txt')
-    
-    with open(out_spacer_constructs_sub_first, 'w') as f:
-        for key, value in combo_Plex_Dict.items():
-            f.write(f"\n{key}\n{value}\n")
-
-# Read in the constructs and sub-constructs file, clean it up and write to 
-# new list and new file (for records)
-
-    cleaned_construct_subconstruct_list = []        
-    with open(out_spacer_constructs_sub_first, 'r') as f:
-        for line in f:
-            line2 = line.replace(", (", "\n")
-            line2 = line2.replace(", [(", "\n")
-            line2 = line2.replace("'", "")
-            line2 = line2.replace("[", "")
-            line2 = line2.replace("(", "")
-            #line2 = line2.replace(", ", ",")
-            line2 = line2.replace("]", "")
-            line2 = line2.replace(")", "")
-            line2 = line2.replace(",\n", "\n")
-            cleaned_construct_subconstruct_list.append(line2)
-    
-    out_spacer_constructs_sub_cleaned = fasta.replace('.fasta', '_all_spacer_constructs_and_subconstructs_organized.txt')        
-    
-    with open(out_spacer_constructs_sub_cleaned, 'w') as f:
-        for each in cleaned_construct_subconstruct_list:
-            f.write(each)
-
-# Read in cleaned and orgainzed construct and sub-construct file and write to
-# list. Remove the blank line first.
-            
-    plex_to_search = []
-    with open(out_spacer_constructs_sub_cleaned, 'r') as f:
-        for line in f:
-            if line.startswith("l"):
-                line2 = line.rstrip('\n')
-                plex_to_search.append(line2)
-            else:
-                continue
-
-# For each construct and sub-construct, search for an exact match in the original
-# gene_groups list and count the number of matches using len(matching)
-# Then write it all to a final file.
-            
-    matching_list = []
-    for each in plex_to_search:
-        matching = [s for s in gene_groups if each == s]
-        number = len(matching)
-        matching_list.append(f"{each}\t{number}\n")
-    
-    out_spacer_constructs_sub_final = fasta.replace('.fasta', '_all_spacer_constructs_and_subconstructs_with_number_of_matches.txt')     
-        
-    with open(out_spacer_constructs_sub_final, 'w') as f:
-        f.write("Spacer_Construct\tNumber_of_Hits\n")
-        for each in matching_list:
-            f.write(each)
-
-# Determine the counts for each pair of spacers
-# Start by reading in the original spacer file, parsing it and writing the
-# combinations (without replacement) to a new list and sorting
-
-    spacer_id = []
-    with open(gene_list, 'r') as f:
-        f.readline()
-        for line in f:
-            spacerID = line.split('\t')[0]
-            spacer_name = spacerID.split('_')[0]
-            spacer_id.append(spacer_name)
-    spacer_id = list(set(spacer_id))
-    
-    spacer_id.sort()
-    
-    spacer_id_combo = list(combinations(spacer_id, 2))
-    
-    spacer_id_combo_string = []
-    for each in spacer_id_combo:
-        spacer_id_combo_string.append(str(each))
-
-# Clean up the spacer combo list
-    
-    updated_spacer_id_combo = []
-    
-    for line in spacer_id_combo_string:
-        line2 = line.replace("('", "")
-        line2 = line2.replace("', '", ", ")
-        line2 = line2.replace("')", "")
-        updated_spacer_id_combo.append(line2)
-
-# Open the sorted by spacer name with value file and write the constructs to
-# a new list for searching.
-    
-    in_file_sorted = []
-    with open(out_geneCombo_sorted, 'r') as f:
-        f.readline()
-        for line in f:
-            grow = line.rstrip('\n').split('\t')[1]
-            if len(grow) > 9:
-                spacer_name = grow.split(', ')
-                in_file_sorted.append(list(combinations(spacer_name, 2)))
-                
-    in_file_sorted_to_search = []
-    for each in in_file_sorted:
-        for tupID in each:
-            strID = ', '.join(tupID)
-            in_file_sorted_to_search.append(strID)
-
-# Find matches to paired spacers and write to a file with the vaule
-        
-    pair_matching_list = []
-    
-    for each in updated_spacer_id_combo:
-        matching = [s for s in in_file_sorted_to_search if each == s]
-        number = len(matching)
-        pair_matching_list.append(f"{each}\t{number}\n")
-        
-    out_pairwise_without_replacement_value = fasta.replace('.fasta', '_pairwise_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams.txt')
-    
-    with open(out_pairwise_without_replacement_value, 'w') as f:
-        f.write("Spacer_1, Spacer_2\tCount\n")
-        for each in pair_matching_list:
-            f.write(each)
-    
-    out_pairwise_without_replacement_value_forPlotting_list = []
-    
-    out_pairwise_without_replacement_value_forPlotting = fasta.replace('.fasta', '_pairwise_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt')
-    
-    with open(out_pairwise_without_replacement_value, 'r') as f:
-        for line in f:
-            line2 = line.replace(", ", "\t")
-            out_pairwise_without_replacement_value_forPlotting_list.append(line2)
-            
-    with open(out_pairwise_without_replacement_value_forPlotting, 'w') as f:
-        for each in out_pairwise_without_replacement_value_forPlotting_list:
-            f.write(each)
-            
-# Take the list of spacer pairs and write a new file that contains both 
-# combintations of the pair (gene 1-gene2 and gene2-gene1) and the value
-# as well as the same spacer pair (gene1 - gene1) and the artifical value of
-# 10,000. This is for the correlation plots.
-            
-    all_pairs_list = []
-    with open(out_pairwise_without_replacement_value, 'r') as f:
-        f.readline()
-        for line in f:
-            construct = line.split('\t')[0]
-            gene1 = construct.rstrip().split(', ')[0]
-            gene2 = construct.rstrip().split(', ')[1]
-            value = line.rstrip('\n').split('\t')[1]
-            all_pairs_list.append(f"{gene1}, {gene2}\t{value}\n")
-            all_pairs_list.append(f"{gene2}, {gene1}\t{value}\n")
-    for each in spacer_id:
-        all_pairs_list.append(f"{each}, {each}\t10000\n")
-        
-    all_pairs_list.sort()
-    
-    out_pairwise_WITH_replacement_value = fasta.replace('.fasta', '_pairwise_spacer_combinations_withReplacement_value_for_correlation_plots.txt')
-    
-    with open(out_pairwise_WITH_replacement_value, 'w') as f:
-        f.write("Spacer_1, Spacer_2\tCount\n")
-        for each in all_pairs_list:
-            f.write(each)
-            
-    out_pairwise_WITH_replacement_value_forPlotting_list = []
-    
-    out_pairwise_WITH_replacement_value_forPlotting = fasta.replace('.fasta', '_pairwise_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt')
-    
-    with open(out_pairwise_WITH_replacement_value, 'r') as f:
-        for line in f:
-            line2 = line.replace(", ", "\t")
-            out_pairwise_WITH_replacement_value_forPlotting_list.append(line2)
-            
-    with open(out_pairwise_WITH_replacement_value_forPlotting, 'w') as f:
-        for each in out_pairwise_WITH_replacement_value_forPlotting_list:
-            f.write(each)
-    
+            gout.write(f'{readHdr}\t{",".join(geneLst)}\n')   
 
 def combineCountFiles( cwd ):
     """combineCountFiles
@@ -1146,9 +706,12 @@ def main():
     # setup logging 
     user = pwd.getpwuid(os.getuid())[0]                # get user login name
     logging.basicConfig(filename="murcs_script-Job.log", encoding='utf-8', level=logging.INFO)
-    today = date.today()
-    logging.info(f' Date run: {today}')
-    logging.info(f' Run by {user}')    
+    current_time = time.ctime()
+    logging.info(f' Date & time started: {current_time}')
+    logging.info(f' Run by {user}')  
+    
+    # start timer, used to calculate total run time
+    start = time.time()  
 
     BAM_files   = []   # hold list of initial input bam files to process
     
@@ -1165,12 +728,9 @@ def main():
         cmdparser.print_help()
         sys.exit(1)
     
-    """
     # create fasta files from bam file, store in list
-    Fasta_files = makeFasta(BAM_files)                          ##########################################################################
+    Fasta_files = makeFasta(BAM_files)                         
     
-    ## TESTING ONLY
-    #Fasta_files = ['Macro_input_B1.ccs-subset.fasta', 'Macro_output_B2.ccs-subset.fasta']
     logging.info(' Created the following fasta files:')
     logging.info(Fasta_files)
 
@@ -1189,7 +749,8 @@ def main():
     print(f"{number_of_files} Fasta files to process.\n")    
     
     # create an dictionary with all the read lengths of the original input files 
-    readStats    = {}          # store a list of all lengths for all samples    
+    readStats    = {}          # store a list of all lengths for all samples   
+    logging.info(' Start calculating read lengths.') 
     for fsa in Fasta_files:
         seqLen, totalReads = countLines(fsa)
         if fsa not in readStats:
@@ -1198,61 +759,70 @@ def main():
             for rd in seqLen:
                 out.write(f'{rd}\n')
         out.close()
-
-    # TESTING     
-    for k,v in readStats.items():                       #############################################################
-        print(k, len(v))
+    logging.info(' Read lengths calculated.')
     
     # create new fasta files which only contain reads that have the repeats
+    logging.info(' Filtering fasta files for reads containing repeats.')
     repeatSequence = getRepeat(gene_list)
+    logging.info(' Fasta files filtered for reads which contain repeats.')
     
+    logging.info(' Count repeats.')
     if repeatSequence is None:
         print('\t**** Error repeat sequence not found in spacer repeat file. ')
         logging.ERROR('**** Error repeat sequence not found in spacer repeat file. EXITING')
         cmdparser.print_help()
         sys.exit(1)
     else:
+        
         argLst = []
         for fsa in Fasta_files:
             argLst.append((fsa, repeatSequence))
         argTup = tuple(argLst)
         with mp.Pool() as pool:
             res = pool.starmap(countRepeats, argTup)
+    logging.info(' Count repeats complete!')
           
     # get the length of spacerRepeat
     lengthSpacerRpt = len(list(geneSpacerDict.keys())[0])
 
+    logging.info(' Starting spacer/Repeat search')
     argLst = []
     for fasta in Fasta_files:
         argLst.append((geneSpacerDict, fasta, lengthSpacerRpt))
     argTup = tuple(argLst)
     with mp.Pool() as pool:
-        res = pool.starmap(searchTwo, argTup)
-    #searchTwo(geneSpacerDict, fasta, lengthSpacerRpt)
-    """
+        res = pool.starmap(search, argTup)
+    logging.info(' spacer/Repeat search complete!')
+    
+    #search(geneSpacerDict, fasta, lengthSpacerRpt)
+    
     # count spacer/Repeats for each sample and create a combined count table
+    logging.info(' Count genes')
     countDataFrame = countGenes()
-    countDataFrame.to_csv('DF_test.txt', sep="\t", index_label='spacer/Repeat', na_rep=0) 
-        
+    countDataFrame.to_csv('Gene_Count_Table.txt', sep="\t", index_label='spacer/Repeat', na_rep=0) 
+    logging.info(' Count genes complete!')
+
+    logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
     # generate pairwise count tables
     makePairwiseCnt()
-    
     chord_correlation_plots(dirPath)
+    logging.info(' Chord and Correlation plotting complete!')
     
     '''
     print("Let's clean up and get out of here!\n")
     
     cleanUp( cwd )
-    
+    '''
     # end timer and do math and report how long the script took to run
     end = time.time()
     total_time = round(end - start, 2)
     total_time_min = round(total_time/60, 2)
     total_time_hours = round(total_time/60/60, 2)
+    logging.info(f' Run time: {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n')
     print(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
     print("Please email Kevin Myers (kmyers2@wisc.edu) with any questions.\n")
-    '''
+    
     
         
 if __name__ == "__main__":
