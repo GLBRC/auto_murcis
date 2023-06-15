@@ -164,9 +164,9 @@ def search(geneTags, fasta, sizeSprRpt):
 
     """
     search_terms = {}
-    out_searchResults = fasta.replace('.fasta', '_search_results.txt')
-    out_geneCombo     = fasta.replace('.fasta', '_gene_combinations_per_read.txt')
-    out_geneOrder     = fasta.replace('.fasta', '_gene-order_byRead.txt')
+    out_searchResults = fasta.replace('.fasta', '-search_results.txt')
+    out_geneCombo     = fasta.replace('.fasta', '-gene_combinations_per_read.txt')
+    out_geneOrder     = fasta.replace('.fasta', '-gene-order_byRead.txt')
     
     print(f"Working on {fasta} now…\n")
     # open fasta file to process and output files 
@@ -821,9 +821,6 @@ def main():
     total_time_hours = round(total_time/60/60, 2)
     logging.info(f' Run time: {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n')
     print(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
-    print("Please email Kevin Myers (kmyers2@wisc.edu) with any questions.\n")
-    
-    
         
 if __name__ == "__main__":
     main()
