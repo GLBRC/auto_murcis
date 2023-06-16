@@ -5,9 +5,12 @@ murcs_script.py
 
 This script will count the number of times each spacer + repeat combination appears in FASTA files
 
+Notes
+-----
+Script makes use of Python multiprocessing to speed up processing.
+
 Input
 -----
-
 Spacer/repeat sequence file should be two columns, tab delimited file with the first column
 being the name of the Spacer/Repeat and the second column the sequence to search:
     
@@ -20,22 +23,10 @@ Bam list file should be a bam file names to process in a single column, one per 
 
 Output
 ------
-
 There are multiple outputs, each named by remove the .fasta and adding text:
     _search_results.txt = Initial search results file
     _gene_combinations_per_read.txt = list of genes with matches to each read
-    _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by 
-    gene name
-    _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries
-      written to file (position and gene name)
-    _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted
-      by position of match relative to the start of the read (spacer order)
-    All_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible 
-      constructs and sub-constructs along with counts for each experiment
-    temp_sorted_possible_combinations.txt = intermediate file with all possible
-      construct and sub-construct combinations
-    temp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary
-      of all possible construct and sub-construct combinations
+    Gene_Count_Table.txt = constructs with counts for each experiment
     _pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with 
       minHit of 5
     _pairwise_allHits_correlationPlot.pdf = Correlation plot for each sample 
@@ -59,7 +50,7 @@ Script must be run in the same directory as the bam and Spacer/Repeat Combindati
 Script tested on MacOS 12.6 and CentOS Linux 7(Core). 
 It may require modification to run on other operating systems
 
-@author: kmyers2@wisc.edu
+@author: kmyers2@wisc.edu, with a little help from Mike Place
 """
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -67,9 +58,9 @@ from datetime import date
 from functools import reduce
 import argparse
 import glob 
-import itertools                                  # for zip_longest and combinations
+import itertools                                   # for zip_longest and combinations
 import logging 
-import multiprocessing as mp
+import multiprocessing as mp                       # use Pool
 import pandas as pd                                # use data frames for merging counts
 import pyfastx
 import pysam
@@ -83,7 +74,7 @@ import time
 # set path to script home
 dirPath = (os.path.dirname(os.path.abspath(__file__))) + '/'
 
-def countGenes():
+def countGenes(cntFile):
     """countGenes
 
     Count genes (spacer/Repeat hits) for each sample.
@@ -91,31 +82,25 @@ def countGenes():
     Returns
     -------
     pandas data frame    
-    """
+    """    
     cwd = os.getcwd()
-    dfLst = []
+    cnt = {}   # key = spacer/Repeat value = count
+    sample = os.path.basename(re.sub('-gene_combinations_per_read.txt', '', cntFile))
 
-    # get a list of files to process, by globbing *-subset_gene_combinations_per_read.txt files
-    for file in glob.glob(cwd + '/*-gene_combinations_per_read.txt'):
-        cnt = {}   # key = spacer/Repeat value = count
-        sample = os.path.basename(re.sub('-gene_combinations_per_read.txt', '', file))
-        with open(file, 'r') as f:
-            f.readline()   # skip header
-            for ln in f:
-                read, genes = ln.rstrip().split('\t')
-                if genes not in cnt:
-                    cnt[genes] = 1
-                else:
-                    cnt[genes] += 1
+    with open(cntFile, 'r') as f:
+        f.readline()   # skip header
+        for ln in f:
+            read, genes = ln.rstrip().split('\t')
+            if genes not in cnt:
+                cnt[genes] = 1
+            else:
+                cnt[genes] += 1
 
-        df = pd.DataFrame.from_dict(cnt, orient='index', columns=[sample])
-        dfLst.append(df)
-        # write individual sample counts to file
-        df.to_csv( sample + '-spacerRepeat-CNTs.txt', sep='\t', index_label='spacer/Repeat', na_rep=0)
-
-    data_merge = reduce(lambda left,right: pd.merge(left,right, how="outer", left_index=True, right_index=True),dfLst)
-    
-    return data_merge
+    df = pd.DataFrame.from_dict(cnt, orient='index', columns=[sample])
+    # write individual sample counts to file
+    df.to_csv( sample + '-spacerRepeat-CNTs.txt', sep='\t', index_label='spacer/Repeat', na_rep=0)
+        
+    return df
 
 def ngrams(seq, n=60):
     """ngrams
@@ -206,169 +191,6 @@ def search(geneTags, fasta, sizeSprRpt):
             geneLst = list(dict.fromkeys(geneOrder[readHdr]))  # get an ordered uniq list of gene names
             gout.write(f'{readHdr}\t{",".join(geneLst)}\n')   
 
-def combineCountFiles( cwd ):
-    """combineCountFiles
-
-    Organize every possible construct and sub-construct from all experiments and
-    record the hits for each in a single file.
-    
-    Parameters
-    ----------
-    cwd : str
-        Current working directory
-    
-    Returns
-    -------
-    All_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible constructs and sub-constructs along with counts for each experiment
-    temp_sorted_possible_combinations.txt = intermediate file with all possible construct and sub-construct combinations
-    temp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary of all possible construct and sub-construct combinations
-
-    """
-    all_possible_constructs_greaterThan_2 = []
-
-    individual_count_files = [ fn for fn in os.listdir(cwd) if fn.endswith("constructs_and_subconstructs_with_number_of_matches.txt") ]
-    individual_count_files.sort()
-
-    for each in individual_count_files:
-        with open(each, 'r') as f:
-            for _ in range(1):
-                next(f)
-            for line in f:
-                construct = line.rstrip('\n').split('\t')[0]
-                if len(construct) > 16:
-                    all_possible_constructs_greaterThan_2.append(construct)
-                    
-    sorted_construct_list = []
-
-    sorted_construct_list = list(set(all_possible_constructs_greaterThan_2))
-    sorted_construct_list = sorted(sorted_construct_list, key = len, reverse = True)
-            
-    sorted_possible_combinations_Dict = {}
-    for each in sorted_construct_list:
-        sorted_possible_combinations_Dict[each]=[]
-        eachList = each.split(', ')
-        length = len(eachList)
-        plexRange = range(length-1, 0, -1)
-        for i in plexRange:
-            sorted_possible_combinations_Dict[each].append(list(combinations(eachList, i)))
-            
-    combo_Plex = []
-    for key, value in sorted_possible_combinations_Dict.items():
-        combo_Plex.append(key)
-        for each in value:
-            combo_Plex.append(each)
-            
-    # Write the intermediate result to a file (for records)
-
-    with open('temp_sorted_possible_combinations_Dict.txt', 'w') as f:
-        for key, value in sorted_possible_combinations_Dict.items():
-            f.write(f"\n{key}\n{value}\n")
-
-    # Read in the constructs and sub-constructs file, clean it up and write to 
-    # new list and new file (for records)
-
-    cleaned_sorted_possible_combo_list = []        
-    with open('temp_sorted_possible_combinations_Dict.txt', 'r') as f:
-        for line in f:
-            line2 = line.replace(", (", "\n")
-            line2 = line2.replace(", [(", "\n")
-            line2 = line2.replace("'", "")
-            line2 = line2.replace("[", "")
-            line2 = line2.replace("(", "")
-            #line2 = line2.replace(", ", ",")
-            line2 = line2.replace("]", "")
-            line2 = line2.replace(")", "")
-            line2 = line2.replace(",\n", "\n")
-            cleaned_sorted_possible_combo_list.append(line2)
-
-    with open('temp_sorted_possible_combinations.txt', 'w') as f:
-        for each in cleaned_sorted_possible_combo_list:
-            f.write(each)
-    
-    
-    count_files = [ fn for fn in os.listdir(cwd) if fn.endswith("spacer_constructs_and_subconstructs_with_number_of_matches.txt")]
-    count_files.sort()
-    combined_files_Dict = {}
-    count = 0
-    maxLen = 0
-    for c, each in enumerate(count_files, 1):
-        with open(each, 'r') as f:
-            temp_construct_list = []
-            f.readline()
-            for line in f:
-                construct_count = line.rstrip('\n')
-                temp_construct_list.append(construct_count)
-                set_construct_list = set(temp_construct_list)
-            for each in set_construct_list:
-                construct = each.split('\t')[0]
-                NumHits = each.rstrip('\n').split('\t')[1]
-                if construct not in combined_files_Dict:
-                    combined_files_Dict[construct]=[] 
-                    if count > 0:
-                        for i in range(count):
-                            combined_files_Dict[construct].append('0')
-                        combined_files_Dict[construct].append(NumHits)
-                    else:
-                        combined_files_Dict[construct].append(NumHits) 
-                else:
-                    combined_files_Dict[construct].append(NumHits)
-            count += 1        
-        maxLen = max({len(x) for x in combined_files_Dict.values()})
-        
-        for k,v in combined_files_Dict.items():
-            if len(v) < maxLen:
-                v.append('0')
-                
-    sample_names = []
-    for each in count_files:
-        sampleName = each.split('.ccs')[0]
-        sample_names.append(sampleName)
-        
-    sampleNameHeader = '\t'.join(sample_names)
-    
-    possible_construct_list = []
-    with open('temp_sorted_possible_combinations.txt', 'r') as f:
-        f.readline()
-        for line in f:
-            line2 = line.rstrip('\n')
-            possible_construct_list.append(line2)
-
-    new_list = []                
-    for each in possible_construct_list:
-        for key, val in combined_files_Dict.items():
-            if each == key:
-                new_list.append(f"{each}\t{val}\n")
-                
-    final_list = []
-    
-    for line in new_list:
-        line2 = line.replace("[", "")
-        line2 = line2.replace("]", "")
-        line2 = line2.replace(", '", "\t")
-        line2 = line2.replace("'", "")
-        final_list.append(line2)
-        
-    with open('All_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt', 'w') as f:
-        f.write(f"Spacer_Consturct\t{sampleNameHeader}\n")
-        for each in final_list:
-            f.write(f"{each}")
-
-def chord_correlation_plots(path_to_R):
-    """chord_correlation_plots
-
-    Run the Rscript to plot the Chord and Correlation plots
-    
-    command = Rscript /Users/kevinmyers/scripts/nicole_nih_scripts/chord_correlation_plot_script.R ./
-    
-    Output:
-        Chord diagrams for all samples (minHit5 only)
-        Correlation charts for all samples (all and minHit5 only)
-    """    
-    cwd = os.getcwd()
-    program = path_to_R + '/chord_correlation_plot_script.R'
-    cmd = ['Rscript', program, cwd]
-    subprocess.run( cmd )  
-
 def cleanUp( cwd ):
     """cleanUp
 
@@ -386,16 +208,26 @@ def cleanUp( cwd ):
     # move intermediate files to another folder
     os.mkdir( "other_files" )
     bamDir = cwd + "/other_files/"
-    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("match_search_results.txt") ]
+    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("search_results.txt") ]
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("_per_read.txt") ]
-    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("_dictionary_out.txt") ] 
-    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("constructs_and_subconstructs.txt") ]
-    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("_constructs_and_subconstructs_organized.txt") ]
-    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.startswith("temp") ]
+    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("order_byRead.txt") ]
     # organize the original fasta files
     os.mkdir( "fasta_files" )
-    bamDir = cwd + "/fasta_files/"
-    [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".fasta") ]
+    fastaDir = cwd + "/fasta_files/"
+    [ os.rename( (cwd + fn), (fastaDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".fasta") ]
+    os.mkdir("plots")
+    plotDir = cwd + "/plots/"
+    [ os.rename( (cwd + fn), (plotDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".pdf") ]
+    [ os.rename( (cwd + fn), (plotDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("forPlotting.txt") ]
+    os.mkdir("readLengths")
+    lenDir = cwd + "/readLengths/"
+    [ os.rename( (cwd + fn), (lenDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("read_lengths.txt") ]
+    os.mkdir("sampleCnts")
+    sampleDir = cwd + "/sampleCnts/"
+    [ os.rename( (cwd + fn), (sampleDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("-CNTs.txt") ]
+    # remove .fai and .fxi files
+    [ os.remove(cwd + fn) for fn in os.listdir(cwd) if fn.endswith(".fai")]
+    [ os.remove(cwd + fn) for fn in os.listdir(cwd) if fn.endswith(".fxi")]
 
 def makeFasta(bamList):
     """makeFasta
@@ -466,9 +298,11 @@ def countRepeats(fsaFile, repeat):
     #for fsaFile in FastaLst:
     repeatsFile = re.sub('.fasta', '-repeat_match.fasta', fsaFile)
     readLenFile = re.sub('.fasta', '-repeats_match_read_lengths.txt', fsaFile)
+    sampleName  = re.sub('.fasta', '', fsaFile)
     dat = pyfastx.Fasta(fsaFile,full_index=True)    # create a fasta object
     # open file to write the reads which contain the repeats, (filter out reads w/o repeat i.e. junk)
     with open(repeatsFile, 'w') as out, open(readLenFile, 'w') as lout:
+        lout.write(f'{sampleName}\n')
         for i in range(dat.count(1)):           
             for rpt in repeat:
                 if dat[i].search(rpt):
@@ -638,6 +472,45 @@ def makePairwiseCnt():
         chord.close()
         corr.close()
 
+def combineLengths(fileLst):
+    """combineLengths
+
+    Combine read length files for plotting into a new file.
+
+    Parameters
+    ----------
+    fileLst : list
+        List of files to join together  
+    Returns
+    -------
+    df : pandas dataframe  
+    """
+    df = pd.concat(fileLst)
+    return df
+
+def chord_correlation_plots(path_to_R):
+    """chord_correlation_plots
+
+    Run the Rscript to plot the Chord and Correlation plots
+        Chord diagrams for all samples (minHit5 only)
+        Correlation charts for all samples (all and minHit5 only)
+    """    
+    cwd = os.getcwd()
+    program = path_to_R + '/chord_correlation_plot_script.R'
+    cmd = ['Rscript', program, cwd]
+    subprocess.run( cmd )  
+
+def readLengthBoxplots(path_to_R):
+    """readLengthBoxplots
+
+    Run the Rscript to plot the read length boxplots.
+    
+    """
+    cwd = os.getcwd()
+    program = path_to_R + '/plotting_boxplots_for_read_lengths.R'
+    cmd = ['Rscript', program, cwd]
+    subprocess.run( cmd )  
+
 def main():
    
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
@@ -712,7 +585,7 @@ def main():
     
     # start timer, used to calculate total run time
     start = time.time()  
-
+    
     BAM_files   = []   # hold list of initial input bam files to process
     
     if cmdResults['FILE'] is not None:
@@ -756,6 +629,8 @@ def main():
         if fsa not in readStats:
             readStats[fsa] = seqLen
         with open(re.sub('.fasta', '_read_lengths.txt',fsa), 'w') as out:
+            header = re.sub('.fasta','',fsa)
+            out.write(f'{header}\n')
             for rd in seqLen:
                 out.write(f'{rd}\n')
         out.close()
@@ -790,18 +665,29 @@ def main():
     for fasta in Fasta_files:
         argLst.append((geneSpacerDict, fasta, lengthSpacerRpt))
     argTup = tuple(argLst)
+    
     with mp.Pool() as pool:
         res = pool.starmap(search, argTup)
     logging.info(' spacer/Repeat search complete!')
     
-    #search(geneSpacerDict, fasta, lengthSpacerRpt)
-    
-    # count spacer/Repeats for each sample and create a combined count table
+    # countGenes in each sample 
     logging.info(' Count genes')
-    countDataFrame = countGenes()
+    argLst = []
+    for file in glob.glob(cwd + '/*-gene_combinations_per_read.txt'):
+        argLst.append([file])
+    argTup = tuple(argLst)
+    print(argTup)
+    
+    dfLst = []                 # list of data frames to write as individual tables and merge into a single table
+    with mp.Pool() as pool:
+        for result in pool.starmap(countGenes, argTup):
+            dfLst.append(result)
+
+    # count spacer/Repeats for each sample and create a combined count table
+    countDataFrame = reduce(lambda left,right: pd.merge(left,right, how="outer", left_index=True, right_index=True),dfLst)
     countDataFrame.to_csv('Gene_Count_Table.txt', sep="\t", index_label='spacer/Repeat', na_rep=0) 
     logging.info(' Count genes complete!')
-
+    
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
     # generate pairwise count tables
@@ -809,18 +695,42 @@ def main():
     chord_correlation_plots(dirPath)
     logging.info(' Chord and Correlation plotting complete!')
     
-    '''
-    print("Let's clean up and get out of here!\n")
-    
+    # start collecting the read length files so we can create tables for plotting
+    readLst = []       # all lengths included
+    matchReadLst = []  # only matched read lengths included
+    for lenFile in glob.glob('*_read_lengths.txt'): 
+        if lenFile.endswith('repeats_match_read_lengths.txt'):
+            matchReadLst.append(lenFile)
+        else:
+            readLst.append(lenFile)
+
+    # create the files for plotting lengths
+    # all lengths first
+    plotDFs = []
+    for f in readLst:
+        plotDFs.append(pd.read_csv(f))
+    plotTable = pd.concat(plotDFs, axis=1)
+    plotTable.to_csv('combined_read_length_for_AllReads.txt', sep='\t', index=False)
+
+    # Now matched reads only
+    plotDFs = []
+    for f in matchReadLst:
+        plotDFs.append(pd.read_csv(f))
+    plotTable = pd.concat(plotDFs, axis=1)
+    plotTable.to_csv('combined_read_length_for_repeat_match.txt', sep='\t', index=False)    
+
+    readLengthBoxplots(dirPath)
+
+    #print("Let's clean up and get out of here!\n")
     cleanUp( cwd )
-    '''
+    
     # end timer and do math and report how long the script took to run
     end = time.time()
     total_time = round(end - start, 2)
     total_time_min = round(total_time/60, 2)
     total_time_hours = round(total_time/60/60, 2)
     logging.info(f' Run time: {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n')
-    print(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
-        
+    kjprint(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
+    
 if __name__ == "__main__":
     main()
