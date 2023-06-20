@@ -685,7 +685,8 @@ def main():
 
     # count spacer/Repeats for each sample and create a combined count table
     countDataFrame = reduce(lambda left,right: pd.merge(left,right, how="outer", left_index=True, right_index=True),dfLst)
-    countDataFrame.to_csv('Gene_Count_Table.txt', sep="\t", index_label='spacer/Repeat', na_rep=0) 
+    countDataFrame.sort_index(axis=0, inplace=True, )
+    countDataFrame.to_csv('Gene_Count_Table_sorted.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)     
     logging.info(' Count genes complete!')
     
     logging.info(' Plotting the Chord and Correlation plots.')    
@@ -730,7 +731,7 @@ def main():
     total_time_min = round(total_time/60, 2)
     total_time_hours = round(total_time/60/60, 2)
     logging.info(f' Run time: {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n')
-    kjprint(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
+    print(f"\nIt took {total_time_hours} hours ({total_time_min} minutes) to process the {number_of_files} FASTA files.\n")
     
 if __name__ == "__main__":
     main()
