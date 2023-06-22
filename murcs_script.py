@@ -438,16 +438,35 @@ def makePairwiseCnt():
     """makePairsizeCnt
 
     Generate 2 gene count tables 1) with all unidirectional pairs and 2) with each pair 
-    represented twice, i.e.  gene1,gene2 and another pair gene2,gene1 with the same count.
+    represented twice, i.e.  gene1,gene2 and another pair gene2,gene1 with the same count
+    for all genes in all groupings. So if we have lpg3000,lpg0963,lpg2223,lpg2888 we would 
+    get the following pairs:
+    (lpg3000,lpg0963), (lpg3000,lpg2223),(lpg3000,lpg2888),(lpg0963,lpg2223),(lpg0963,lpg2888),
+    (lpg2223,lpg2888)
 
-    file expected to look like: 
-
+    tab delimited file expected to look like: 
     spacer/Repeat   Macro_output_B2.ccs
     lpg0026b,lpg0049a,lpg0228a,lpg1917b,lpg1917a    38
-    lpg0049a,lpg0026b,lpg0228a      422
+    lpg0049a,lpg0026b,lpg0228a     422
     lpg0281b,lpg0228a,lpg0228b,lpg0281a     580
     lpg1658a        200
-    
+
+In [115]: res = {}
+     ...: with open('sampleCnts/AC1_Input_NE_01-spacerRepeat-CNTs.txt', 'r') as f:
+     ...:     f.readline()
+     ...:     for line in f:
+     ...:         dat = line.rstrip().split('\t')
+     ...:         dat[1] = int(dat[1])
+     ...:         genes = dat[0].split(',')
+     ...:         if len(genes) > 1:
+     ...:             pairs = list(combinations(genes,2))
+     ...:             frozenPairs = [frozenset(x) for x in pairs]
+     ...:             for p in frozenPairs:
+     ...:                 if p not in res:
+     ...:                     res[p] = dat[1]
+     ...:                 else:
+     ...:                     res[p] += dat[1]
+
     """
     for file in glob.glob( os.getcwd() + '/*-spacerRepeat-CNTs.txt'):
         fname = re.sub('-spacerRepeat-CNTs.txt', '', file) +  '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
@@ -514,13 +533,13 @@ def readLengthBoxplots(path_to_R):
 def mergeCounts(cntFile):
     """mergeCounts
 
-    Sum up all counts for genes combination, ignorming gene order. 
+    Sum up all counts for genes combination, ignoring gene order. 
     Use a frozenset as key which allows comparisons where the gene order
     doesn't matter.   
     """
     res = {}    # key = frozenset of genes value = list of counts for samples
     with open(cntFile, 'r') as f:
-        header = f.readline().rstrip()
+        sampleNames = f.readline().rstrip().split('\t')[1:]
         for line in f:
             genes = frozenset(line.split('\t')[0].split(','))
             counts = line.rstrip().split('\t')[1:]
@@ -530,27 +549,10 @@ def mergeCounts(cntFile):
             else:
                 for i,cnt in enumerate(counts):
                     res[genes][i] += cnt
-    
-
-
-    """
-    with open('testCnts.txt', 'r') as f:
-    ...:     header =  f.readline().rstrip()    
-    ...:     for line in f:
-    ...:         genes = frozenset(line.split('\t')[0].split(','))
-    ...:         counts = line.rstrip().split('\t')[1:]
-    ...:         counts = [ float(x) for x in counts]
-    ...:         print(line.rstrip())
-    ...:         print(genes, counts)
-    ...:         print()
-    ...:         if genes not in res:
-    ...:             res[genes] = counts
-    ...:         else:
-    ...:             for i,cnt in enumerate(counts):
-    ...:                 res[genes][i] += cnt
-    
-    """
-
+    # create a new dictionary converting the frozenset keys to strings
+    cleanRes = {','.join(list(key)):value for key, value in res.items()  }
+    df = pd.DataFrame.from_dict(cleanRes, orient='index', columns=sampleNames)    
+    return df
 
 def main():
    
@@ -724,14 +726,16 @@ def main():
         for result in pool.starmap(countGenes, argTup):
             dfLst.append(result)
 
-    # count spacer/Repeats for each sample and create a combined count table
+    # count spacer/Repeats for each sample and create a combined count table, by individual spacer/Repeats
     countDataFrame = reduce(lambda left,right: pd.merge(left,right, how="outer", left_index=True, right_index=True),dfLst)
     countDataFrame.sort_index(axis=0, inplace=True, )
-    countDataFrame.to_csv('Gene_Count_Table_sorted.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)     
+    countDataFrame.to_csv('Gene_Count_Table.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)     
     logging.info(' Count genes complete!')
 
-    # Write merged gene counts, where the order of the genes is not important.
-    mergeCounts('Gene_Count_Table_sorted.txt')
+    # Write merged gene counts, where the order of the genes is not important, just gene presence.
+    finalCnt = mergeCounts('Gene_Count_Table.txt')
+    finalCnt.sort_index(axis=0, inplace=True)
+    finalCnt.to_csv('Gene_Count_Table_sorted.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)
     
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
