@@ -511,6 +511,47 @@ def readLengthBoxplots(path_to_R):
     cmd = ['Rscript', program, cwd]
     subprocess.run( cmd )  
 
+def mergeCounts(cntFile):
+    """mergeCounts
+
+    Sum up all counts for genes combination, ignorming gene order. 
+    Use a frozenset as key which allows comparisons where the gene order
+    doesn't matter.   
+    """
+    res = {}    # key = frozenset of genes value = list of counts for samples
+    with open(cntFile, 'r') as f:
+        header = f.readline().rstrip()
+        for line in f:
+            genes = frozenset(line.split('\t')[0].split(','))
+            counts = line.rstrip().split('\t')[1:]
+            counts = [ float(x) for x in counts]
+            if genes not in res:
+                res[genes] = counts
+            else:
+                for i,cnt in enumerate(counts):
+                    res[genes][i] += cnt
+    
+
+
+    """
+    with open('testCnts.txt', 'r') as f:
+    ...:     header =  f.readline().rstrip()    
+    ...:     for line in f:
+    ...:         genes = frozenset(line.split('\t')[0].split(','))
+    ...:         counts = line.rstrip().split('\t')[1:]
+    ...:         counts = [ float(x) for x in counts]
+    ...:         print(line.rstrip())
+    ...:         print(genes, counts)
+    ...:         print()
+    ...:         if genes not in res:
+    ...:             res[genes] = counts
+    ...:         else:
+    ...:             for i,cnt in enumerate(counts):
+    ...:                 res[genes][i] += cnt
+    
+    """
+
+
 def main():
    
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
@@ -688,6 +729,9 @@ def main():
     countDataFrame.sort_index(axis=0, inplace=True, )
     countDataFrame.to_csv('Gene_Count_Table_sorted.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)     
     logging.info(' Count genes complete!')
+
+    # Write merged gene counts, where the order of the genes is not important.
+    mergeCounts('Gene_Count_Table_sorted.txt')
     
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
