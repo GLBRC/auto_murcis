@@ -39,6 +39,9 @@ Requirements
     Python 3
     Python modules:
         BioPython
+        Pandas
+        pyfastx
+        pysam
     R
     R libraries:
         ggplot2
@@ -56,6 +59,7 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from datetime import date
 from functools import reduce
+from itertools import combinations
 import argparse
 import glob 
 import itertools                                   # for zip_longest and combinations
@@ -437,10 +441,10 @@ def getRepeat(gene_list):
 def makePairwiseCnt():
     """makePairsizeCnt
 
-    Generate 2 gene count tables 1) with all unidirectional pairs and 2) with each pair 
-    represented twice, i.e.  gene1,gene2 and another pair gene2,gene1 with the same count
-    for all genes in all groupings. So if we have lpg3000,lpg0963,lpg2223,lpg2888 we would 
-    get the following pairs:
+    Generate 2 gene count tables 1) with all unidirectional pairs (without replacement) 
+    and 2) each pair represented twice (with replacement), i.e.  gene1,gene2 and another
+    pair gene2,gene1 with the same count for all genes in all groupings. So if we have
+    lpg3000,lpg0963,lpg2223,lpg2888 we would get the following pairs:
     (lpg3000,lpg0963), (lpg3000,lpg2223),(lpg3000,lpg2888),(lpg0963,lpg2223),(lpg0963,lpg2888),
     (lpg2223,lpg2888)
 
@@ -451,45 +455,42 @@ def makePairwiseCnt():
     lpg0281b,lpg0228a,lpg0228b,lpg0281a     580
     lpg1658a        200
 
-In [115]: res = {}
-     ...: with open('sampleCnts/AC1_Input_NE_01-spacerRepeat-CNTs.txt', 'r') as f:
-     ...:     f.readline()
-     ...:     for line in f:
-     ...:         dat = line.rstrip().split('\t')
-     ...:         dat[1] = int(dat[1])
-     ...:         genes = dat[0].split(',')
-     ...:         if len(genes) > 1:
-     ...:             pairs = list(combinations(genes,2))
-     ...:             frozenPairs = [frozenset(x) for x in pairs]
-     ...:             for p in frozenPairs:
-     ...:                 if p not in res:
-     ...:                     res[p] = dat[1]
-     ...:                 else:
-     ...:                     res[p] += dat[1]
-
     """
     for file in glob.glob( os.getcwd() + '/*-spacerRepeat-CNTs.txt'):
         fname = re.sub('-spacerRepeat-CNTs.txt', '', file) +  '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
+        # dictionary key = frozenset of gene pairs , this allows checking for matching without reguard to order, value = count
+        srCNTs = {}      
+        with open(file, 'r') as f:
+            f.readline()                          # skip header
+            for line in f:
+                dat = line.rstrip().split('\t')
+                cnt = int(dat[1])
+                genes = dat[0].split(',')
+                if len(genes) > 1:
+                    pairs = list(combinations(genes,2))
+                    frozenPairs = [frozenset(x) for x in pairs]
+                    for p in frozenPairs:
+                        if p not in srCNTs:
+                            srCNTs[p] = cnt
+                        else:
+                            srCNTs[p] += cnt    
+        # write to Chord diagram input file
+        with open(fname, 'w') as chordOut:
+            chordOut.write('Spacer_1\tSpacer_2\tCount\n')    # write header
+            for genes,cnt in srCNTs.items():
+                gene1, gene2 = ','.join(genes).split(',')
+                chordOut.write(f'{gene1}\t{gene2}\t{str(cnt)}\n')                        
+        chordOut.close()
+
+        # write to correlation input file
         fname2 = re.sub('-spacerRepeat-CNTs.txt', '', file) + '_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'
-
-        with open(file, 'r') as f, open(fname, 'w') as chord, open(fname2, 'w') as corr:
-            f.readline()                                  # skip header
-            chord.write('Spacer_1\tSpacer_2\tCount\n')    # write header
-            corr.write('Spacer_1\tSpacer_2\tCount\n')     # write header
-
-            for ln in f:
-                cnt = ln.rstrip().split('\t')[1]
-                genes = ln.rstrip().split('\t')[0].split(',')
-                # we only care about pairs, skip the rest
-                if len(genes) == 2:       
-                    chord.write('\t'.join(genes) + '\t' + cnt + '\n')
-                    corr.write('\t'.join(genes) + '\t' + cnt + '\n')
-                    genes[0],genes[1] = genes[1],genes[0]
-                    corr.write('\t'.join(genes) + '\t' + cnt + '\n')
-
-        f.close()
-        chord.close()
-        corr.close()
+        with open(fname2, 'w') as corrOut:
+            corrOut.write('Spacer_1\tSpacer_2\tCount\n')     # write header
+            for genes,cnt in srCNTs.items():
+                gene1, gene2 = ','.join(genes).split(',')
+                corrOut.write(f'{gene1}\t{gene2}\t{str(cnt)}\n')                        
+                corrOut.write(f'{gene2}\t{gene1}\t{str(cnt)}\n')
+        corrOut.close()
 
 def combineLengths(fileLst):
     """combineLengths
