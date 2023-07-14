@@ -6,13 +6,14 @@ This repository is an more user-friendly pipline used to analyze multiplex rando
 
 **Note:** These scripts have been tested on Linux (CentOS7) and Mac (MacOS 12.6). Some modification may be required to run these on other operating systems. 
 
+Conda environment can be created using the file murcis_conda_environment.txt by running:
+  conda create --name <env> --file murcis_conda_environment.txt 
 
 ### Using `murcs_script.py` to analyze data
-This script requires three input files:
+This script requires two input files:
 
 - A text file listing the BAM files to process, on per line (`-f`).
 - A two column (tab delimited) text file listing the sequences (5'-3') for the repeat and the different spacers used in the experiment (see example below and in Example directory) (`-t`).
-- Complete path to these scripts and BAM files (`-p`).
 
 Spacer/Repeat Sequence File should be a two column, tab delimited file with the first tab
 being the name of the Spacer or repeat and the second column the sequence to search (`-t`):
@@ -56,10 +57,10 @@ Script must be run in the same directory as the BAM files and Spacer/Repeat Sequ
 
 To run the script, `cd` to the directory containing the files to analyze and run this as an example:
 
-	`python ~/scripts/MuRCS_pipeline/murcs_script.py -f bam_files.txt -t Spacer_Repeat_sequence_File.txt -p ~/bin/MuRCS_pipeline`
+	`python murcs_script.py -f bam_files.txt -t Spacer_Repeat_sequence_File.txt `
 
 ### Notes
 
-This has been tested on Linus (CentOS7) and MacOS (12.6). Other operating systems may require modifications.
+This has been tested on Linux (CentOS7) and MacOS (12.6). Other operating systems may require modifications.
 
 
