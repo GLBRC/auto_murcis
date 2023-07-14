@@ -552,18 +552,15 @@ def mergeCounts(cntFile):
     return df
 
 def main():
-   
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
                                        " NIH Project and produce organized files for further analysis along with different plots.",
                                         usage='%(prog)s -f <list of bam files to process> -t' 
-                                        '<spacer and repeat combinations> -p <path to GitHub Repo and Rscript> [optional arguments: -d]',
+                                        '<spacer and repeat combinations> [optional arguments: -d]',
                                           prog='count_spacers_NIH.py'  )                                  
     cmdparser.add_argument('-f', '--file',  action='store', dest='FILE',
                             help='File with all the bam files to process, one per line.', metavar='')
     cmdparser.add_argument('-t', '--targets',  action='store', dest='TARGETS',
                             help='spacer + repeat targets for each gene', metavar='')
-    cmdparser.add_argument('-p', '--path', action='store', dest='PATH', 
-                           help='Path to location of GitHub Repo and Python and R Scripts', metavar='')
     cmdparser.add_argument('-d', '--detail',  action='store_true', dest='DETAIL',
                             help='Print a more detailed description of the program.')
     cmdResults = vars(cmdparser.parse_args())
@@ -722,8 +719,17 @@ def main():
 
     # Write merged gene counts, where the order of the genes is not important, just gene presence.
     finalCnt = mergeCounts('Gene_Count_Table.txt')
-    finalCnt.sort_index(axis=0, inplace=True)
-    finalCnt.to_csv('Gene_Count_Table_sorted.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)
+    finalCnt.to_csv('Gene_Count_Table_Merged.txt', sep="\t", index_label='spacer/Repeat', na_rep=0)
+    
+    # Sort the Gene_Count_Table.txt genes names for user, using sorted (not ideal)
+    with open('Gene_Count_Table_Merged.txt', 'r') as f, open('Gene_Count_Table_sorted.txt', 'w') as out:
+            out.write(f.readline())             # write header
+            for line in f:
+                d = line.rstrip().split('\t')
+                d[0] = ','.join(sorted([ n for n in d[0].split(',')]))               
+                out.write('\t'.join(d))         # write sorted gene names with values
+    f.close()
+    out.close()
     
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
