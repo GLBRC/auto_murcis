@@ -1,0 +1,10 @@
+Universe                 = local
+Executable               = run_murcs.sh
+getenv                   = True
+Arguments                = bamfiles gene_spaces_sequence-Nicole.txt 
+getenv                   = True
+Should_Transfer_Files    = IF_NEEDED
+When_To_Transfer_Output  = On_Exit
+Error                    = submit.err
+Log                      = submit.log
+Queue
