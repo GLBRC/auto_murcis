@@ -24,8 +24,9 @@ Bam list file should be a bam file names to process in a single column, one per 
 Output
 ------
 There are multiple outputs, each named by remove the .fasta and adding text:
-    _search_results.txt = Initial search results file
-    _gene_combinations_per_read.txt = list of genes with matches to each read
+    -search_results.txt = Initial search results file
+    -gene_combinations_per_read.txt = list of genes with matches to each read
+    -gene-order_byRead.txt = list of gene in order of appears in reads
     Gene_Count_Table.txt = constructs with counts for each experiment
     _pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with 
       minHit of 5
@@ -36,7 +37,7 @@ There are multiple outputs, each named by remove the .fasta and adding text:
     
 Requirements
 ------------
-    Python 3
+    Python 3 (specifically tested with 3.10.8 )
     Python modules:
         BioPython
         Pandas
@@ -110,6 +111,7 @@ def ngrams(seq, n=60):
     """ngrams
     
     Create a list of ngrams using a DNA sequence string.
+    N-grams in this case are a continous list of characters.
 
     Parameters
     ----------
@@ -145,12 +147,9 @@ def search(geneTags, fasta, sizeSprRpt):
         Expected length of space repeat.  
     Returns
     -------
-    _search_results.txt = Initial search results file
-    _gene_combinations_per_read.txt = list of genes with matches to each read
-    _gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name
-    _gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries written to file (position and gene name)
-    _gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted by position of match relative to the start of the read (spacer order)
-
+    -search_results.txt = Initial search results file
+    -gene_combinations_per_read.txt = list of genes with matches to each read
+    -gene-order_byRead.txt = list of gene in order of appears in reads
     """
     search_terms = {}
     out_searchResults = fasta.replace('.fasta', '-search_results.txt')
@@ -160,6 +159,7 @@ def search(geneTags, fasta, sizeSprRpt):
     print(f"Working on {fasta} now…\n")
     # open fasta file to process and output files 
     with open(fasta, 'r') as f, open(out_searchResults, 'w') as sr, open(out_geneCombo,'w') as cout, open(out_geneOrder, 'w') as gout:
+        # write header information
         sr.write('Read_name\tGenes\tPositions\n')
         cout.write('Read_name\tGenes\n')
         gout.write('Read_name\tGene_order\n')
@@ -206,7 +206,6 @@ def cleanUp( cwd ):
     ----------
     cwd : str 
         Current Working Directory
-
     """
     cwd = cwd + "/"
     # move intermediate files to another folder
@@ -245,8 +244,7 @@ def makeFasta(bamList):
     Returns
     -------
     fastaLst : list
-        List of newly created fasta files.
-    
+        List of newly created fasta files.    
     """
     fastaLst = []           # list of newly created fasta files to return
 
@@ -299,7 +297,6 @@ def countRepeats(fsaFile, repeat):
     repeats : list
         Repeat list, used for searching.
     """    
-    #for fsaFile in FastaLst:
     repeatsFile = re.sub('.fasta', '-repeat_match.fasta', fsaFile)
     readLenFile = re.sub('.fasta', '-repeats_match_read_lengths.txt', fsaFile)
     sampleName  = re.sub('.fasta', '', fsaFile)
@@ -340,7 +337,7 @@ def geneSpacerCombinations(spcrRpt):
         
         for line in f:
             gene, spacer = line.rstrip().split('\t')
-            spacerRC = str(Seq(spacer).reverse_complement())    
+            spacerRC = str(Seq(spacer).reverse_complement())    # utilize biopython
             
             # generate spacer repeat combinations
             #gene_Spacer+repeat
@@ -422,8 +419,7 @@ def getRepeat(gene_list):
     Parameters
     ----------
     gene_list : str
-        File containg the repeat sequence.
-    
+        File containg the repeat sequence.    
     """
     fwd = None
     rvs = None 
@@ -466,7 +462,7 @@ def makePairwiseCnt():
                 dat = line.rstrip().split('\t')
                 cnt = int(dat[1])
                 genes = dat[0].split(',')
-                if len(genes) > 1:
+                if len(genes) > 1:                 # We only care about pairs of genes, singletons can be excluded.
                     pairs = list(combinations(genes,2))
                     frozenPairs = [frozenset(x) for x in pairs]
                     for p in frozenPairs:
@@ -518,7 +514,7 @@ def chord_correlation_plots(path_to_R):
     cwd = os.getcwd()
     program = path_to_R + '/chord_correlation_plot_script.R'
     cmd = ['Rscript', program, cwd]
-    subprocess.run( cmd )  
+    subprocess.run(cmd)  
 
 def readLengthBoxplots(path_to_R):
     """readLengthBoxplots
@@ -529,7 +525,7 @@ def readLengthBoxplots(path_to_R):
     cwd = os.getcwd()
     program = path_to_R + '/plotting_boxplots_for_read_lengths.R'
     cmd = ['Rscript', program, cwd]
-    subprocess.run( cmd )  
+    subprocess.run(cmd)  
 
 def mergeCounts(cntFile):
     """mergeCounts
@@ -593,26 +589,17 @@ def main():
         print("Required parameters:")
         print("\t1) -f bam_input.txt")
         print("\t2) -t spacer_repeat_seq.txt")
-        print("\t3) -p path_to_scripts\n")
         print("Optional arguments:")
         print("\t-d:  print a detailed description of the program.\n\n")
         print("Intermediate files are moved to the 'other_files' directory when finished")
         print("\nOriginal bam files are moved to the 'bam_files' directory when finished")
-        print("\nThere are multiple outputs, each named by remove the .fasta and adding text:")
-        print("\t_search_results.txt = Initial search results file")
-        print("\t_gene_combinations_per_read.txt = list of genes with matches to each read")
-        print("\t_gene_combinations_per_read_SortedByGeneName.txt = list of genes sorted by gene name")
-        print("\t_gene_combinations_per_read_dictionary_out.txt = dictionary of dictionaries")
-        print("\t  written to file (position and gene name")
-        print("\t_gene_combinations_per_read_SortedBySpacerPosition.txt = list of genes sorted")
-        print("\t  by position of match relative to the start of the read (spacer order)\n")
+        print("\nThere are multiple outputs, each named by removing the .fasta and adding text:")
+        print("\t-search_results.txt = Initial search results file")
+        print("\t-gene_combinations_per_read.txt = list of genes with matches to each read")
+        print("\t-gene-order_byRead.txt = list of gene in order of appears in reads")
+        print("\tGene_Count_Table.txt = constructs with counts for each experiment")
         print("Three output files are for all experiments combined:")
         print("\tAll_Constructs_and_Subconstructs_with_Counts_All_Experiments.txt = All possible") 
-        print("\t  constructs and sub-constructs along with counts for each experiment")
-        print("\temp_sorted_possible_combinations.txt = intermediate file with all possible") 
-        print("\t  construct and sub-construct combinations")
-        print("\ttemp_sorted_possible_combinations_Dict.txt = intermediate file with dictionary") 
-        print("\t  of all possible construct and sub-construct combinations")
         print("\t_pairwise_minHit5_chordDiagram.pdf = the Chord diagram for each sample with minHit of 5")
         print("\t_pairwise_allHits_correlationPlot.pdf = Correlation plot for each sample including all hits")
         print("\t_pairwise_minHit5_correlationPlot.pdf = Correlation plot for each sample with minHit of 5")
