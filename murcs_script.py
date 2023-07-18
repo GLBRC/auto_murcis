@@ -727,7 +727,7 @@ def main():
             for line in f:
                 d = line.rstrip().split('\t')
                 d[0] = ','.join(sorted([ n for n in d[0].split(',')]))               
-                out.write('\t'.join(d))         # write sorted gene names with values
+                out.write('\t'.join(d) + '\n')         # write sorted gene names with values
     f.close()
     out.close()
     
