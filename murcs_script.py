@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 """
 murcs_script.py
 
@@ -551,6 +550,49 @@ def mergeCounts(cntFile):
     df = pd.DataFrame.from_dict(cleanRes, orient='index', columns=sampleNames)    
     return df
 
+def countIndividualSpacers(gene_list):
+    """countIndividualSpacers
+    
+    Parse construct files with values and count how often each individual gene 
+    spacer (gene ID) is found in any combination of spacer constructs. 
+    Adapted from script by Kevin Myers.
+    
+    -spacerRepeat-CNTs.txt looks like:
+    spacer/Repeat   AC3_Input_NE_03
+    lpg0518,lpg3000 8
+    lpg2552,lpg2885 256
+    """
+    genes = []
+    with open(gene_list, 'r') as f:
+        for line in f:
+            genes.append(line.split()[0])
+    
+    genes.remove('name')       # remove unneeded items from original gene list
+    genes.remove('repeat')
+    
+    # process all the *-spacerRepeat-CNTs.txt
+    for cntFile in glob.glob('*-spacerRepeat-CNTs.txt'):
+        outName = re.sub('-spacerRepeat-CNTs.txt', '_spacer_counts.txt', cntFile)
+    
+        gene_dict = {}        # key = gene, value = list of counts
+        with open(cntFile, 'r') as f:
+            for line in f:
+                construct = line.split('\t')[0]          
+                count = line.rstrip().split('\t')[1]
+                for g in genes:                       # assign a count to a gene
+                    if g in construct:
+                        if g in gene_dict:
+                            gene_dict[g].append(int(count))
+                        else:
+                            gene_dict[g]=[]
+                            gene_dict[g].append(int(count))
+            # sum all of a genes counts                
+            out = {k: [sum(gene_dict[k])] for k in gene_dict.keys()}
+            # write result
+            with open(outName, 'w') as f:
+                for key,val in out.items():
+                    f.write(f"{key}\t{val[0]}\n")
+
 def main():
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
                                        " NIH Project and produce organized files for further analysis along with different plots.",
@@ -605,6 +647,7 @@ def main():
         sys.exit(1)
         
     # setup logging 
+    '''
     user = pwd.getpwuid(os.getuid())[0]                # get user login name
     logging.basicConfig(filename="murcs_script-Job.log", encoding='utf-8', level=logging.INFO)
     current_time = time.ctime()
@@ -613,7 +656,7 @@ def main():
     
     # start timer, used to calculate total run time
     start = time.time()  
-    
+    '''
     BAM_files   = []   # hold list of initial input bam files to process
     
     if cmdResults['FILE'] is not None:
@@ -629,12 +672,14 @@ def main():
         cmdparser.print_help()
         sys.exit(1)
     
+    '''
     # create fasta files from bam file, store in list
     Fasta_files = makeFasta(BAM_files)                         
     
     logging.info(' Created the following fasta files:')
     logging.info(Fasta_files)
-
+    '''
+    
     # retrieve Spacer/repeat file
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
@@ -646,8 +691,9 @@ def main():
         sys.exit(1)
 
     # report number of fasta files to process
-    number_of_files = len(Fasta_files)
-    print(f"{number_of_files} Fasta files to process.\n")    
+    #number_of_files = len(Fasta_files)
+    #print(f"{number_of_files} Fasta files to process.\n")    
+    
     
     # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples   
@@ -684,10 +730,10 @@ def main():
         with mp.Pool() as pool:
             res = pool.starmap(countRepeats, argTup)
     logging.info(' Count repeats complete!')
-          
+
     # get the length of spacerRepeat
     lengthSpacerRpt = len(list(geneSpacerDict.keys())[0])
-
+    
     logging.info(' Starting spacer/Repeat search')
     argLst = []
     for fasta in Fasta_files:
@@ -730,7 +776,7 @@ def main():
                 out.write('\t'.join(d) + '\n')         # write sorted gene names with values
     f.close()
     out.close()
-
+    
     os.remove(''Gene_Count_Table_Merged.txt'')
     
     logging.info(' Plotting the Chord and Correlation plots.')    
@@ -764,8 +810,14 @@ def main():
     plotTable = pd.concat(plotDFs, axis=1)
     plotTable.to_csv('combined_read_length_for_repeat_match.txt', sep='\t', index=False)    
 
+    logging.info(' Generating read length box plots.')
     readLengthBoxplots(dirPath)
-
+    logging.info(' Read length box plots complete!')
+    
+    logging.info(' Start counting individual spacers.')
+    countIndividualSpacers(gene_list)
+    logging.info(' Count individual spacers complete!')
+    
     #print("Let's clean up and get out of here!\n")
     cleanUp( cwd )
     
