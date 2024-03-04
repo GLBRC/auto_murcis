@@ -18,7 +18,7 @@ args <- commandArgs(TRUE)
 working.dir <- args[1]
 setwd(working.dir)
 # set colors
-grid.col = c(lpg0059="aquamarine",lpg0086="bisque",lpg0107="blue",lpg0140="brown",
+grid.col = c(lpg0059="aquamarine",lpg0086="bisque",lpg0107="blue",lpb1658="brown",
              lpg0171="brown1",lpg0246="burlywood4",lpg0404="cadetblue",lpg0439="cadetblue1",
              lpg0518="chartreuse",lpg0716="chartreuse4",lpg1099="chocolate",lpg1525="chocolate4",
              lpg1527="coral",lpg1621="coral4",lpg1661="cyan",lpg1701="cyan3",lpg1907="darkgoldenrod",
@@ -67,7 +67,11 @@ for(i in correlation_files){
   plt <- ggplot(list1_new, aes(x=Spacer_1, y=Spacer_2)) +
     geom_tile(aes(fill=group), color = "black") +
     coord_fixed() +
-    scale_fill_manual(breaks = levels(list1_new$group), values = c("white", "wheat", "#BB9D00", "#F8766D", "#E76BF3", "#00C0B8", "#00A5FF", "black"), name = "Pairwise\nOccurances", labels = c("No Hit", "1-4", "5-10", "11-100", "101-500", "501-1000", "1001-5000", "Same Spacer")) +
+    scale_fill_manual(breaks = levels(list1_new$group), values = c("white", "wheat", "#BB9D00",
+    "#F8766D", "#E76BF3", "#00C0B8", "#00A5FF", "red2", "blue2", "green3", "purple4", "black"),
+    name = "Pairwise\nOccurances", labels = c("No Hit", "1-4", "5-10", "11-100", "101-500",
+    "501-1000", "1001-5000", "5001-10000", "10001-50000", "50001-100000", "100001-500000", 
+    "Same Spacer")) +
     theme(axis.text.x = element_text(
       angle = 90)
     ) + 
@@ -84,7 +88,11 @@ for(i in correlation_files){
   plt <- ggplot(list1_new, aes(x=Spacer_1, y=Spacer_2)) +
     geom_tile(aes(fill=group), color = "black") +
     coord_fixed() +
-    scale_fill_manual(breaks = levels(list1_new$group), values = c("white", "#BB9D00", "#F8766D", "#E76BF3", "#00C0B8", "#00A5FF", "black"), name = "Pairwise\nOccurances", labels = c("0-4", "5-10", "11-100", "101-500", "501-1000", "1001-5000", "Same Spacer")) +
+      scale_fill_manual(breaks = levels(list1_new$group), values = c("white", "#BB9D00", 
+      "#F8766D", "#E76BF3", "#00C0B8", "#00A5FF", "red2", "blue2", "green3", "purple4",
+      "black"), name = "Pairwise\nOccurances", labels = c("0-4", "5-10", "11-100", 
+      "101-500", "501-1000", "1001-5000", "5001-10000", "10001-50000", "50001-100000",
+      "100001-500000", "Same Spacer")) +
     theme(axis.text.x = element_text(
       angle = 90)
     ) + 
