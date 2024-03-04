@@ -730,6 +730,8 @@ def main():
                 out.write('\t'.join(d) + '\n')         # write sorted gene names with values
     f.close()
     out.close()
+
+    os.remove(''Gene_Count_Table_Merged.txt'')
     
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
