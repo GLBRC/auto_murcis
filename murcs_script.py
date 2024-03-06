@@ -208,23 +208,28 @@ def cleanUp( cwd ):
     """
     cwd = cwd + "/"
     # move intermediate files to another folder
-    os.mkdir( "other_files" )
+    if not os.path.exists('other_files'):
+        os.mkdir( "other_files" )
     bamDir = cwd + "/other_files/"
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("search_results.txt") ]
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("_per_read.txt") ]
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("order_byRead.txt") ]
     # organize the original fasta files
-    os.mkdir( "fasta_files" )
+    if not os.path.exists('fasta_files'):
+        os.mkdir( "fasta_files" )
     fastaDir = cwd + "/fasta_files/"
     [ os.rename( (cwd + fn), (fastaDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".fasta") ]
-    os.mkdir("plots")
+    if not os.path.exists('plots'):
+        os.mkdir("plots")
     plotDir = cwd + "/plots/"
     [ os.rename( (cwd + fn), (plotDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".pdf") ]
     [ os.rename( (cwd + fn), (plotDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("forPlotting.txt") ]
-    os.mkdir("readLengths")
+    if not os.path.exists('readLengths'):
+        os.mkdir("readLengths")
     lenDir = cwd + "/readLengths/"
     [ os.rename( (cwd + fn), (lenDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("read_lengths.txt") ]
-    os.mkdir("sampleCnts")
+    if not os.path.exists('sampleCnts'):
+        os.mkdir("sampleCnts")
     sampleDir = cwd + "/sampleCnts/"
     [ os.rename( (cwd + fn), (sampleDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("-CNTs.txt") ]
     # remove .fai and .fxi files
@@ -592,6 +597,82 @@ def countIndividualSpacers(gene_list):
             with open(outName, 'w') as f:
                 for key,val in out.items():
                     f.write(f"{key}\t{val[0]}\n")
+                    
+def summary():
+    """summary
+    
+    Create a simple summary statistics file.    
+    """
+        
+    workingDir = os.getcwd()
+
+    with open('summary_stats.txt', 'w') as out:
+        # uniq counts for each sample
+        out.write('Unique Counts\n')
+        out.write('sample\t>=1 hits\t>=5 hits\ttotal\n')
+        for infile in sorted(list(glob.glob('*-spacerRepeat-CNTs.txt'))):
+            counts = {'oneHit':0, 'fiveHit': 0, 'total':0}
+            with open(infile, 'r') as uniq:
+                uniq.readline()        # skip header
+                for line in uniq:
+                    counts['total'] += 1
+                    hits = int(line.rstrip().split()[-1])
+                    if hits >= 1 and hits >= 5:
+                        counts['oneHit'] += 1
+                        counts['fiveHit'] += 1
+                    elif hits >= 1 and hits < 5:
+                        counts['oneHit'] += 1
+            
+            outLine = f"{re.sub('-spacerRepeat-CNTs.txt', '', infile)}\t{counts['oneHit']}\t{counts['fiveHit']}\t{counts['total']}\n"
+            out.write(outLine)
+
+        out.write("\n\n")
+        
+        # pairwise construct numbers
+        pattern = '_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'
+        out.write('Pairwise Construct Counts\n')
+        out.write('sample\t>=1 hits\t\t>=5 hits\ttotal\n')    
+        for infile in sorted(list(glob.glob('*_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'))):
+            counts = {'oneHit': 0, 'fiveHit': 0, 'total': 0}
+            with open(infile, 'r') as pairs:
+                pairs.readline()    # skip header
+                for line in pairs:
+                    counts['total'] += 1
+                    hits = int(line.rstrip().split()[-1])
+                    
+                    if hits >= 1 and hits >= 5:
+                        counts['oneHit'] += 1
+                        counts['fiveHit'] += 1
+                    elif hits >= 1 and hits < 5:
+                        counts['oneHit'] += 1
+            
+            outLine = f"{re.sub(pattern, '', infile)}\t{counts['oneHit']}\t{counts['fiveHit']}\t{counts['total']}\n"
+            out.write(outLine)
+
+        out.write("\n\n")
+        
+        # reads with repeats, total reads
+        out.write('Reads with Repeats\n')
+        out.write('sample\tReads w/ Repeat\ttotal\n')     
+        counts = {}
+        
+        for infile in glob.glob('*-repeats_match_read_lengths.txt'):
+            name = re.sub('-repeats_match_read_lengths.txt' ,'' ,infile)
+            otherFile = name + '_read_lengths.txt'
+            
+            if not name in counts:
+                counts[name] = {'matched':0, 'total':0}
+                    
+            with open(otherFile, 'r') as f:
+                    counts[name]['total'] = str(len(f.readlines()) - 1)
+            
+            with open(infile, 'r') as f:
+                    counts[name]['matched'] = str(len(f.readlines()) - 1)
+        
+        sortNames = sorted(list(counts.keys()))
+        for n in sortNames:
+            outLine = f"{n}\t{counts[n]['matched']}\t{counts[n]['total']}\n"
+            out.write(outLine)            
 
 def main():
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
@@ -647,7 +728,6 @@ def main():
         sys.exit(1)
         
     # setup logging 
-    '''
     user = pwd.getpwuid(os.getuid())[0]                # get user login name
     logging.basicConfig(filename="murcs_script-Job.log", encoding='utf-8', level=logging.INFO)
     current_time = time.ctime()
@@ -656,7 +736,6 @@ def main():
     
     # start timer, used to calculate total run time
     start = time.time()  
-    '''
     BAM_files   = []   # hold list of initial input bam files to process
     
     if cmdResults['FILE'] is not None:
@@ -671,15 +750,13 @@ def main():
         print("Please provide a file with bam file names, one per line.\n")
         cmdparser.print_help()
         sys.exit(1)
-    
-    '''
+        
     # create fasta files from bam file, store in list
     Fasta_files = makeFasta(BAM_files)                         
     
     logging.info(' Created the following fasta files:')
     logging.info(Fasta_files)
-    '''
-    
+        
     # retrieve Spacer/repeat file
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
@@ -691,10 +768,9 @@ def main():
         sys.exit(1)
 
     # report number of fasta files to process
-    #number_of_files = len(Fasta_files)
-    #print(f"{number_of_files} Fasta files to process.\n")    
-    
-    
+    number_of_files = len(Fasta_files)
+    print(f"{number_of_files} Fasta files to process.\n")    
+        
     # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples   
     logging.info(' Start calculating read lengths.') 
@@ -777,7 +853,7 @@ def main():
     f.close()
     out.close()
     
-    os.remove(''Gene_Count_Table_Merged.txt'')
+    os.remove('Gene_Count_Table_Merged.txt')
     
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
@@ -818,7 +894,10 @@ def main():
     countIndividualSpacers(gene_list)
     logging.info(' Count individual spacers complete!')
     
-    #print("Let's clean up and get out of here!\n")
+    logging.info(' Create summary stats.')
+    summary()
+    
+    logging.info(" Running clean up step.\n")
     cleanUp( cwd )
     
     # end timer and do math and report how long the script took to run
