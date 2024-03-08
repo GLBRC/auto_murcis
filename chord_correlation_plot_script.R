@@ -33,7 +33,6 @@ grid.col = c(lpg0059="aquamarine",lpg0086="bisque",lpg0107="blue",lpb1658="brown
 #Plot chord plots using files from murcs_script.py
 chord_files <- list.files(path = working.dir, pattern = "spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt")
 for(i in chord_files){
-  sample_name <- strsplit(i, split='.ccs')[[1]][1]
   sample_name <- sub("spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt", "", i)
   fileName = paste(sample_name,"pairwise_minHit5_chordDiagram.pdf", sep = "_")
   pdf(fileName, width = 12, height = 12)
