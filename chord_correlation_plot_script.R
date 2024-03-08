@@ -9,10 +9,11 @@
 # Script will import the files, make the plots, write the plots to the file in the same directory
 # This script has been tested on MacOS 12.6. Modification may be required to run on other operating systems
 # Author:  kmyers2@wisc.edu
+suppressPackageStartupMessages(library(circlize))
 library(reshape2)
 library(circlize)
 library(ggplot2)
-suppressPackageStartupMessages(library(circlize))
+
 # process command line argument
 args <- commandArgs(TRUE)
 working.dir <- args[1]
@@ -33,6 +34,7 @@ grid.col = c(lpg0059="aquamarine",lpg0086="bisque",lpg0107="blue",lpb1658="brown
 chord_files <- list.files(path = working.dir, pattern = "spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt")
 for(i in chord_files){
   sample_name <- strsplit(i, split='.ccs')[[1]][1]
+  sample_name <- sub("spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt", "", i)
   fileName = paste(sample_name,"pairwise_minHit5_chordDiagram.pdf", sep = "_")
   pdf(fileName, width = 12, height = 12)
   
@@ -54,7 +56,7 @@ for(i in chord_files){
 correlation_files <- list.files(path = working.dir, pattern = "spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt")
 
 for(i in correlation_files){
-  sample_name <- strsplit(i, split='.ccs')[[1]][1]
+  sample_name <- sub("_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt", "", i)
   fileName = paste(sample_name,"pairwise_allHits_correlationPlot.pdf", sep = "_")
   fileName_minHit5 = paste(sample_name, "pairwise_minHit5_correlationPlot.pdf", sep = "_")
 
