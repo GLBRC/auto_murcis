@@ -598,12 +598,15 @@ def countIndividualSpacers(gene_list):
                 for key,val in out.items():
                     f.write(f"{key}\t{val[0]}\n")
                     
-def summary():
+def summary(totalPairs):
     """summary
     
     Create a simple summary statistics file.    
-    """
-        
+    Parameters
+    ----------
+    geneLst : int
+        The total number of unique tag pairs.
+    """        
     workingDir = os.getcwd()
 
     with open('summary_stats.txt', 'w') as out:
@@ -629,24 +632,22 @@ def summary():
         out.write("\n\n")
         
         # pairwise construct numbers
-        pattern = '_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'
+        pattern = '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
         out.write('Pairwise Construct Counts\n')
         out.write('sample\t>=1 hits\t\t>=5 hits\ttotal\n')    
-        for infile in sorted(list(glob.glob('*_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'))):
-            counts = {'oneHit': 0, 'fiveHit': 0, 'total': 0}
+        for infile in sorted(list(glob.glob('*_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'))):
+            counts = {'oneHit': 0, 'fiveHit': 0}
             with open(infile, 'r') as pairs:
                 pairs.readline()    # skip header
                 for line in pairs:
-                    counts['total'] += 1
                     hits = int(line.rstrip().split()[-1])
-                    
                     if hits >= 1 and hits >= 5:
                         counts['oneHit'] += 1
                         counts['fiveHit'] += 1
                     elif hits >= 1 and hits < 5:
                         counts['oneHit'] += 1
             
-            outLine = f"{re.sub(pattern, '', infile)}\t{counts['oneHit']}\t{counts['fiveHit']}\t{counts['total']}\n"
+            outLine = f"{re.sub(pattern, '', infile)}\t{counts['oneHit']}\t{counts['fiveHit']}\t{str(totalPairs)}\n"
             out.write(outLine)
 
         out.write("\n\n")
@@ -750,13 +751,13 @@ def main():
         print("Please provide a file with bam file names, one per line.\n")
         cmdparser.print_help()
         sys.exit(1)
-        
+    
     # create fasta files from bam file, store in list
     Fasta_files = makeFasta(BAM_files)                         
     
     logging.info(' Created the following fasta files:')
     logging.info(Fasta_files)
-        
+    
     # retrieve Spacer/repeat file
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
@@ -766,11 +767,21 @@ def main():
         print("Please provide a file spacer + repeat sequences.\n")
         cmdparser.print_help()
         sys.exit(1)
-
+        
+    # get the total number of unique pairs
+    with open(gene_list, 'r') as f:
+        f.readline()
+        f.readline()   # skip header lines
+        totalGenes = 0
+        for ln in f:
+            totalGenes += 1
+    totalPairs = int(totalGenes*(totalGenes-1)/2)  # calculate all possible unique tag pairs
+    
     # report number of fasta files to process
     number_of_files = len(Fasta_files)
     print(f"{number_of_files} Fasta files to process.\n")    
-        
+    
+    '''   
     # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples   
     logging.info(' Start calculating read lengths.') 
@@ -893,12 +904,12 @@ def main():
     logging.info(' Start counting individual spacers.')
     countIndividualSpacers(gene_list)
     logging.info(' Count individual spacers complete!')
-    
+    '''
     logging.info(' Create summary stats.')
-    summary()
+    summary(totalPairs)
     
     logging.info(" Running clean up step.\n")
-    cleanUp( cwd )
+    #cleanUp( cwd )
     
     # end timer and do math and report how long the script took to run
     end = time.time()
