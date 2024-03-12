@@ -78,6 +78,30 @@ import time
 # set path to script home
 dirPath = (os.path.dirname(os.path.abspath(__file__))) + '/'
 
+def allPairs(geneLst):
+    """allPairs
+    
+    Using list of input gene names, generate a set of all possible pair sets.
+    Return a set of all pairs, where each pair is a string, "tag1\ttag2".    
+    
+    Parameters
+    ----------
+    geneLst : str
+        Text file containing the gene name and tag sequence.
+        Here we only care about the gene name.
+    """
+    # get the initial gene tag input list
+    tagLst = []
+    with open(geneLst, 'r') as f:
+        f.readline()         # skip header
+        f.readline()         # skip repeat line
+        for line in f:
+            tagLst.append(line.split()[0])
+            
+    all_pairs = list(combinations(tagLst, 2))
+    res = set([ '\t'.join(list(x)) for x in all_pairs])
+    return res        
+
 def countGenes(cntFile):
     """countGenes
 
@@ -762,26 +786,19 @@ def main():
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
         geneSpacerDict = geneSpacerCombinations(gene_list)
+        pair_lst = allPairs(gene_list)
         logging.info(f' Using the following gene spacer file "{gene_list}"')
     else:
         print("Please provide a file spacer + repeat sequences.\n")
         cmdparser.print_help()
         sys.exit(1)
         
-    # get the total number of unique pairs
-    with open(gene_list, 'r') as f:
-        f.readline()
-        f.readline()   # skip header lines
-        totalGenes = 0
-        for ln in f:
-            totalGenes += 1
-    totalPairs = int(totalGenes*(totalGenes-1)/2)  # calculate all possible unique tag pairs
+    totalPairs = (len(pair_lst))   # get the number of all possible unique tag pairs
     
     # report number of fasta files to process
     number_of_files = len(Fasta_files)
     print(f"{number_of_files} Fasta files to process.\n")    
     
-    '''   
     # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples   
     logging.info(' Start calculating read lengths.') 
@@ -904,7 +921,7 @@ def main():
     logging.info(' Start counting individual spacers.')
     countIndividualSpacers(gene_list)
     logging.info(' Count individual spacers complete!')
-    '''
+    
     logging.info(' Create summary stats.')
     summary(totalPairs)
     
