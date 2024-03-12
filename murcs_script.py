@@ -48,12 +48,12 @@ Requirements
         reshape2
         circlize
 
-Script must be run in the same directory as the bam and Spacer/Repeat Combindation files.
+Script must be run in the same directory as the bam and Spacer/Repeat Combination files.
 
 Script tested on MacOS 12.6 and CentOS Linux 7(Core). 
 It may require modification to run on other operating systems
 
-@author: kmyers2@wisc.edu, with a little help from Mike Place
+@author: kmyers2@wisc.edu, help from Mike Place
 """
 from Bio.Seq import Seq
 from Bio import SeqIO
@@ -462,7 +462,7 @@ def getRepeat(gene_list):
     repeat = [fwd, rvs]
     return repeat        
     
-def makePairwiseCnt():
+def makePairwiseCnt(pair_set):
     """makePairsizeCnt
 
     Generate 2 gene count tables 1) with all unidirectional pairs (without replacement) 
@@ -479,6 +479,11 @@ def makePairwiseCnt():
     lpg0281b,lpg0228a,lpg0228b,lpg0281a     580
     lpg1658a        200
 
+    parameters
+    ----------
+    pair_set : set
+        List of all possible tag pairs, each pair is a tab delimited string 
+        i.e. "tag1\ttag2"
     """
     for file in glob.glob( os.getcwd() + '/*-spacerRepeat-CNTs.txt'):
         fname = re.sub('-spacerRepeat-CNTs.txt', '', file) +  '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
@@ -510,10 +515,16 @@ def makePairwiseCnt():
         fname2 = re.sub('-spacerRepeat-CNTs.txt', '', file) + '_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'
         with open(fname2, 'w') as corrOut:
             corrOut.write('Spacer_1\tSpacer_2\tCount\n')     # write header
+            foundSet = set()
             for genes,cnt in srCNTs.items():
                 gene1, gene2 = ','.join(genes).split(',')
                 corrOut.write(f'{gene1}\t{gene2}\t{str(cnt)}\n')                        
                 corrOut.write(f'{gene2}\t{gene1}\t{str(cnt)}\n')
+                foundSet.add(f"{gene1}\t{gene2}")
+                foundSet.add(f"{gene2}\t{gene1}")
+            missingPairs = pair_set.difference(foundSet)
+            for mpair in missingPairs:
+                corrOut.write(f'{mpair}\t"0"\n')
         corrOut.close()
 
 def combineLengths(fileLst):
@@ -786,19 +797,20 @@ def main():
     if cmdResults['TARGETS'] is not None:
         gene_list = cmdResults['TARGETS']
         geneSpacerDict = geneSpacerCombinations(gene_list)
-        pair_lst = allPairs(gene_list)
+        pair_set = allPairs(gene_list)
         logging.info(f' Using the following gene spacer file "{gene_list}"')
     else:
         print("Please provide a file spacer + repeat sequences.\n")
         cmdparser.print_help()
         sys.exit(1)
         
-    totalPairs = (len(pair_lst))   # get the number of all possible unique tag pairs
+    totalPairs = (len(pair_set))   # get the number of all possible unique tag pairs
     
     # report number of fasta files to process
     number_of_files = len(Fasta_files)
     print(f"{number_of_files} Fasta files to process.\n")    
     
+     
     # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples   
     logging.info(' Start calculating read lengths.') 
@@ -886,7 +898,7 @@ def main():
     logging.info(' Plotting the Chord and Correlation plots.')    
     print("Plotting the Chord and Correlation plots…\n")
     # generate pairwise count tables
-    makePairwiseCnt()
+    makePairwiseCnt(pair_set)
     chord_correlation_plots(dirPath)
     logging.info(' Chord and Correlation plotting complete!')
     
