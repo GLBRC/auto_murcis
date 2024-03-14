@@ -80,7 +80,7 @@ for(i in correlation_files){
   
   #gradient chart additional 0-5 bin
   list1_new <- list1
-  list1_new$group <- cut(list1_new$Count, breaks = c(-1, 0, 4, 10, 100, 500, 1000, 5000, 10000))
+  list1_new$group <- cut(list1_new$Count, breaks = c(-1, 0, 4, 10, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 100000000))
   pdf(fileName, width = 12, height = 12)
   plt <- ggplot(list1_new, aes(x=Spacer_1, y=Spacer_2)) +
     geom_tile(aes(fill=group), color = "black") +
@@ -101,7 +101,7 @@ for(i in correlation_files){
   
   #gradient chart ≥5
   list1_new <- list1
-  list1_new$group <- cut(list1_new$Count, breaks = c(-1, 4, 10, 100, 500, 1000, 5000, 10000))
+  list1_new$group <- cut(list1_new$Count, breaks = c(-1, 4, 10, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 5000000))
   pdf(fileName_minHit5, width = 12, height = 12)
   plt <- ggplot(list1_new, aes(x=Spacer_1, y=Spacer_2)) +
     geom_tile(aes(fill=group), color = "black") +
