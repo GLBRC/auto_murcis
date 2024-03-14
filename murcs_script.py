@@ -99,8 +99,8 @@ def allPairs(geneLst):
             tagLst.append(line.split()[0])
             
     all_pairs = list(combinations(tagLst, 2))
-    res = set([ '\t'.join(list(x)) for x in all_pairs])
-    return res        
+    res = [frozenset((list(x))) for x in all_pairs]
+    return res     
 
 def countGenes(cntFile):
     """countGenes
