@@ -543,7 +543,7 @@ def combineLengths(fileLst):
     df = pd.concat(fileLst)
     return df
 
-def chord_correlation_plots(path_to_R):
+def chord_correlation_plots(path_to_R, colorsFile):
     """chord_correlation_plots
 
     Run the Rscript to plot the Chord and Correlation plots
@@ -552,7 +552,7 @@ def chord_correlation_plots(path_to_R):
     """    
     cwd = os.getcwd()
     program = path_to_R + '/chord_correlation_plot_script.R'
-    cmd = ['Rscript', program, cwd]
+    cmd = ['Rscript', program, cwd, colorsFile]
     subprocess.run(cmd)  
 
 def readLengthBoxplots(path_to_R):
@@ -714,8 +714,10 @@ def main():
     cmdparser = argparse.ArgumentParser(description="Count spacers + repeat in files for" 
                                        " NIH Project and produce organized files for further analysis along with different plots.",
                                         usage='%(prog)s -f <list of bam files to process> -t' 
-                                        '<spacer and repeat combinations> [optional arguments: -d]',
-                                          prog='count_spacers_NIH.py'  )                                  
+                                        ' <spacer and repeat combinations> -c <colors file> [optional arguments: -d]',
+                                          prog='murcs_script.py'  )   
+    cmdparser.add_argument('-c', '--color',  action='store', dest='COLOR',
+                            help='File with color definitions for genes.', metavar='')                  
     cmdparser.add_argument('-f', '--file',  action='store', dest='FILE',
                             help='File with all the bam files to process, one per line.', metavar='')
     cmdparser.add_argument('-t', '--targets',  action='store', dest='TARGETS',
@@ -743,8 +745,9 @@ def main():
         print("Create the directory and copy the FASTA and spacer+repeat files to the new directory.")
         print("Produce bam input file by running ls *.bam > bam_input.txt\n")
         print("Required parameters:")
-        print("\t1) -f bam_input.txt")
-        print("\t2) -t spacer_repeat_seq.txt")
+        print("\t1) -c names_colors.txt")        
+        print("\t2) -f bam_input.txt")
+        print("\t3) -t spacer_repeat_seq.txt")
         print("Optional arguments:")
         print("\t-d:  print a detailed description of the program.\n\n")
         print("Intermediate files are moved to the 'other_files' directory when finished")
@@ -774,6 +777,16 @@ def main():
     start = time.time()  
     BAM_files   = []   # hold list of initial input bam files to process
     
+    # retrieve the gene color definitions file
+    if cmdResults['COLOR'] is not None:
+        colorDefinitions = cmdResults['COLOR']
+        logging.info(f' Color Definitions file: {colorDefinitions}')
+    else:
+        print("Please provide a color definitions file.")
+        cmdparser.print_help()
+        sys.exit(1)
+            
+    # retrieve bam information
     if cmdResults['FILE'] is not None:
         bamfile = cmdResults['FILE']
         logging.info(f' Input bam file: "{bamfile}"')
@@ -810,7 +823,6 @@ def main():
     number_of_files = len(Fasta_files)
     print(f"{number_of_files} Fasta files to process.\n")    
     
-     
     # create an dictionary with all the read lengths of the original input files 
     readStats    = {}          # store a list of all lengths for all samples   
     logging.info(' Start calculating read lengths.') 
@@ -899,7 +911,7 @@ def main():
     print("Plotting the Chord and Correlation plots…\n")
     # generate pairwise count tables
     makePairwiseCnt(pair_set)
-    chord_correlation_plots(dirPath)
+    chord_correlation_plots(dirPath, colorDefinitions)
     logging.info(' Chord and Correlation plotting complete!')
     
     # start collecting the read length files so we can create tables for plotting
@@ -917,6 +929,7 @@ def main():
     for f in readLst:
         plotDFs.append(pd.read_csv(f))
     plotTable = pd.concat(plotDFs, axis=1)
+    
     plotTable.to_csv('combined_read_length_for_AllReads.txt', sep='\t', index=False)
 
     # Now matched reads only
