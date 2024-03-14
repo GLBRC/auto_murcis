@@ -461,7 +461,7 @@ def getRepeat(gene_list):
     f.close()
     repeat = [fwd, rvs]
     return repeat        
-    
+
 def makePairwiseCnt(pair_set):
     """makePairsizeCnt
 
@@ -487,7 +487,7 @@ def makePairwiseCnt(pair_set):
     """
     for file in glob.glob( os.getcwd() + '/*-spacerRepeat-CNTs.txt'):
         fname = re.sub('-spacerRepeat-CNTs.txt', '', file) +  '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
-        # dictionary key = frozenset of gene pairs , this allows checking for matching without reguard to order, value = count
+        # dictionary key = frozenset of gene pairs , this allows checking for matching without regard to order, value = count
         srCNTs = {}      
         with open(file, 'r') as f:
             f.readline()                          # skip header
@@ -515,16 +515,33 @@ def makePairwiseCnt(pair_set):
         fname2 = re.sub('-spacerRepeat-CNTs.txt', '', file) + '_spacer_combinations_withReplacement_value_for_correlation_plots_forPlotting.txt'
         with open(fname2, 'w') as corrOut:
             corrOut.write('Spacer_1\tSpacer_2\tCount\n')     # write header
-            foundSet = set()
-            for genes,cnt in srCNTs.items():
+            foundSet = []
+            # write genes with pair counts to file
+            for genes,cnt in srCNTs.items():   
+                foundSet.append(genes)
                 gene1, gene2 = ','.join(genes).split(',')
-                corrOut.write(f'{gene1}\t{gene2}\t{str(cnt)}\n')                        
-                corrOut.write(f'{gene2}\t{gene1}\t{str(cnt)}\n')
-                foundSet.add(f"{gene1}\t{gene2}")
-                foundSet.add(f"{gene2}\t{gene1}")
-            missingPairs = pair_set.difference(foundSet)
-            for mpair in missingPairs:
-                corrOut.write(f'{mpair}\t"0"\n')
+                if gene1 == gene2:
+                    corrOut.write(f'{gene1}\t{gene2}\t{str(cnt)}\n')                        
+                else:
+                    corrOut.write(f'{gene1}\t{gene2}\t{str(cnt)}\n')
+                    corrOut.write(f'{gene2}\t{gene1}\t{str(cnt)}\n')
+            
+            individualGenes = set()           # store individual gene names for last loop in function
+            # write genes without pair counts to file
+            for genePair in pair_set:
+                geneA, geneB = list(genePair)
+                individualGenes.add(geneA)
+                if genePair not in foundSet:
+                    gene1, gene2 = list(genePair)
+                    if gene1 == gene2:
+                        corrOut.write(f'{gene1}\t{gene2}\t0\n')
+                    else:
+                        corrOut.write(f'{gene1}\t{gene2}\t0\n')
+                        corrOut.write(f'{gene2}\t{gene1}\t0\n')
+            # write geneA, geneA 1000000000 for all same gene pairs, used to make the center diagonal line black in plot
+            for igene in individualGenes:
+                corrOut.write(f'{igene}\t{igene}\t100000000\n')
+        
         corrOut.close()
 
 def combineLengths(fileLst):
