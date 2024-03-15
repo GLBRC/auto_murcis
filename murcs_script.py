@@ -230,36 +230,49 @@ def cleanUp( cwd ):
     cwd : str 
         Current Working Directory
     """
-    cwd = cwd + "/"
+    cwd = cwd + "/"    
+    # set up a final output directory to package up the results for user.
+    currDate = date.today()
+    outputDirName = cwd + "output-" + f"{currDate.day}-{currDate.month}-{currDate.year}" + "/"
+    os.mkdir(outputDirName)
+        
     # move intermediate files to another folder
-    if not os.path.exists('other_files'):
-        os.mkdir( "other_files" )
-    bamDir = cwd + "/other_files/"
+    if not os.path.exists(outputDirName + 'other_files'):
+        os.mkdir( outputDirName + 'other_files' )
+    bamDir = outputDirName + "other_files/"
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("search_results.txt") ]
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("_per_read.txt") ]
     [ os.rename( (cwd + fn), (bamDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("order_byRead.txt") ]
     # organize the original fasta files
-    if not os.path.exists('fasta_files'):
-        os.mkdir( "fasta_files" )
-    fastaDir = cwd + "/fasta_files/"
+    if not os.path.exists(outputDirName + 'fasta_files'):
+        os.mkdir( outputDirName + 'fasta_files' )
+    fastaDir = outputDirName + 'fasta_files/'
     [ os.rename( (cwd + fn), (fastaDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".fasta") ]
-    if not os.path.exists('plots'):
-        os.mkdir("plots")
-    plotDir = cwd + "/plots/"
+    if not os.path.exists(outputDirName + 'plots'):
+        os.mkdir(outputDirName + "plots")
+    plotDir = outputDirName + "plots/"
     [ os.rename( (cwd + fn), (plotDir + fn) ) for fn in os.listdir(cwd) if fn.endswith(".pdf") ]
     [ os.rename( (cwd + fn), (plotDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("forPlotting.txt") ]
-    if not os.path.exists('readLengths'):
-        os.mkdir("readLengths")
-    lenDir = cwd + "/readLengths/"
+    if not os.path.exists(outputDirName + 'readLengths'):
+        os.mkdir(outputDirName + "readLengths")
+    lenDir = outputDirName + "readLengths/"
     [ os.rename( (cwd + fn), (lenDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("read_lengths.txt") ]
-    if not os.path.exists('sampleCnts'):
-        os.mkdir("sampleCnts")
-    sampleDir = cwd + "/sampleCnts/"
+    if not os.path.exists(outputDirName + 'sampleCnts'):
+        os.mkdir(outputDirName + "sampleCnts")
+    sampleDir = outputDirName + "sampleCnts/"
     [ os.rename( (cwd + fn), (sampleDir + fn) ) for fn in os.listdir(cwd) if fn.endswith("-CNTs.txt") ]
     # remove .fai and .fxi files
     [ os.remove(cwd + fn) for fn in os.listdir(cwd) if fn.endswith(".fai")]
     [ os.remove(cwd + fn) for fn in os.listdir(cwd) if fn.endswith(".fxi")]
-
+    
+    # move the rest of the files
+    os.rename((cwd + "combined_read_length_for_AllReads.txt"), outputDirName + "combined_read_length_for_AllReads.txt")
+    os.rename((cwd + "combined_read_length_for_repeat_match.txt"), outputDirName + "combined_read_length_for_repeat_match.txt")
+    os.rename((cwd + "Gene_Count_Table_sorted.txt"),  outputDirName + "Gene_Count_Table_sorted.txt" )
+    os.rename((cwd + "Gene_Count_Table.txt"),  outputDirName + "Gene_Count_Table.txt" )
+    os.rename((cwd + "summary_stats.txt"),  outputDirName + "summary_stats.txt" )
+    os.rename((cwd + "murcs_script-Job.log"),  outputDirName + "murcs_script-Job.log" )
+    
 def makeFasta(bamList):
     """makeFasta
 
@@ -968,7 +981,7 @@ def main():
     summary(totalPairs)
     
     logging.info(" Running clean up step.\n")
-    #cleanUp( cwd )
+    cleanUp( cwd )
     
     # end timer and do math and report how long the script took to run
     end = time.time()
