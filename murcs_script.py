@@ -271,7 +271,6 @@ def cleanUp( cwd ):
     os.rename((cwd + "Gene_Count_Table_sorted.txt"),  outputDirName + "Gene_Count_Table_sorted.txt" )
     os.rename((cwd + "Gene_Count_Table.txt"),  outputDirName + "Gene_Count_Table.txt" )
     os.rename((cwd + "summary_stats.txt"),  outputDirName + "summary_stats.txt" )
-    os.rename((cwd + "murcs_script-Job.log"),  outputDirName + "murcs_script-Job.log" )
     
 def makeFasta(bamList):
     """makeFasta
@@ -636,9 +635,6 @@ def countIndividualSpacers(gene_list):
     with open(gene_list, 'r') as f:
         for line in f:
             genes.append(line.split()[0])
-    
-    genes.remove('name')       # remove unneeded items from original gene list
-    genes.remove('repeat')
     
     # process all the *-spacerRepeat-CNTs.txt
     for cntFile in glob.glob('*-spacerRepeat-CNTs.txt'):
