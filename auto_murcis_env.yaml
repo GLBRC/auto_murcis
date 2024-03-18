@@ -10,6 +10,7 @@ dependencies:
     - glob2
     - pandas
     - pyfastx
+    - pysam
     - r
     - r-ggplot2
     - r-reshape2
