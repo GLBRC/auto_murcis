@@ -64,7 +64,7 @@ for(i in chord_files){
                 facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5))
   }, bg.border = NA)
   
-  title(paste(sample_name, " All Pairwise Connections (MinHit = 5)", sep = " "))
+  title(paste(sample_name, " All Pairwise Connections - minimum 5 hits", sep = " "))
   dev.off()
 }
 
@@ -93,7 +93,7 @@ for(i in correlation_files){
     theme(axis.text.x = element_text(
       angle = 90)
     ) + 
-    ggtitle(paste(sample_name, "Pairwise Gene Counts (gradient) updated scale", sep = " ")) +
+    ggtitle(paste(sample_name, "Pairwise Gene Counts", sep = " ")) +
     scale_x_discrete(name = "Spacer 1") +
     scale_y_discrete(name = "Spacer 2")
   print(plt)
@@ -114,7 +114,7 @@ for(i in correlation_files){
     theme(axis.text.x = element_text(
       angle = 90)
     ) + 
-    ggtitle(paste(sample_name, "Pairwise Gene Counts (gradient) minimum 5 hits", sep = " ")) +
+    ggtitle(paste(sample_name, "Pairwise Gene Counts - minimum 5 hits", sep = " ")) +
     scale_x_discrete(name = "Spacer 1") +
     scale_y_discrete(name = "Spacer 2")
   print(plt)
