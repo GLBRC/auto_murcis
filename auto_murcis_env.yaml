@@ -1,0 +1,16 @@
+name: auto_murcis_env
+channels:
+    - bioconda
+    - conda-forge
+    - anaconda
+    - r
+dependencies:
+    - python>=3.10
+    - biopython
+    - glob2
+    - pandas
+    - pyfastx
+    - r
+    - r-ggplot2
+    - r-reshape2
+    - r-circlize
