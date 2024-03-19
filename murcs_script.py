@@ -230,10 +230,10 @@ def cleanUp( cwd ):
     cwd : str 
         Current Working Directory
     """
-    #cwd = cwd + "/"    
+    cwd = cwd + "/"    
     # set up a final output directory to package up the results for user.
     currDate = datetime.datetime.now()
-    outputDirName = cwd + "/auto_murcis_output-" + f"{currDate.strftime('%d')}-{currDate.strftime('%m')}-{currDate.strftime('%Y')}" + "/"
+    outputDirName = cwd + "auto_murcis_output-" + f"{currDate.strftime('%d')}-{currDate.strftime('%m')}-{currDate.strftime('%Y')}" + "/"
     os.mkdir(outputDirName)
         
     # move intermediate files to another folder
