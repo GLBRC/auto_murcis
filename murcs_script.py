@@ -57,10 +57,10 @@ It may require modification to run on other operating systems
 """
 from Bio.Seq import Seq
 from Bio import SeqIO
-from datetime import date
 from functools import reduce
 from itertools import combinations
 import argparse
+import datetime
 import glob 
 import itertools                                   # for zip_longest and combinations
 import logging 
@@ -230,10 +230,10 @@ def cleanUp( cwd ):
     cwd : str 
         Current Working Directory
     """
-    cwd = cwd + "/"    
+    #cwd = cwd + "/"    
     # set up a final output directory to package up the results for user.
-    currDate = date.today()
-    outputDirName = cwd + "output-" + f"{currDate.day}-{currDate.month}-{currDate.year}" + "/"
+    currDate = datetime.datetime.now()
+    outputDirName = cwd + "/auto_murcis_output-" + f"{currDate.strftime('%d')}-{currDate.strftime('%m')}-{currDate.strftime('%Y')}" + "/"
     os.mkdir(outputDirName)
         
     # move intermediate files to another folder
