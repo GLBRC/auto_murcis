@@ -16,3 +16,5 @@ dependencies:
     - r-ggplot2
     - r-reshape2
     - r-circlize
+    - r-tidyverse
+    - r-rcolorbrewer
