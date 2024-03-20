@@ -552,7 +552,7 @@ def makePairwiseCnt(pair_set):
                         corrOut.write(f'{gene2}\t{gene1}\t0\n')
             # write geneA, geneA 1000000000 for all same gene pairs, used to make the center diagonal line black in plot
             for igene in individualGenes:
-                corrOut.write(f'{igene}\t{igene}\t100000000\n')
+                corrOut.write(f'{igene}\t{igene}\t750000\n')
         
         corrOut.close()
 
@@ -695,7 +695,7 @@ def summary(totalPairs):
         # pairwise construct numbers
         pattern = '_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'
         out.write('Pairwise Construct Counts\n')
-        out.write('sample\t>=1 hits\t\t>=5 hits\ttotal\n')    
+        out.write('sample\t>=1 hits\t>=5 hits\ttotal\n')    
         for infile in sorted(list(glob.glob('*_spacer_combinations_withoutReplacement_value_for_Chord_Diagrams_forPlotting.txt'))):
             counts = {'oneHit': 0, 'fiveHit': 0}
             with open(infile, 'r') as pairs:
