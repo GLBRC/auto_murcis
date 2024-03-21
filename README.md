@@ -12,7 +12,7 @@
 
 ### Overview of pipeline
 
-This repository is an more user-friendly pipline used to analyze multiplex random CRISPR array assembly with high-throughput long-read sequence analysis (MuRCiS) by [Ellis et al](https://elifesciences.org/reviewed-preprints/86903). This pipeline uses a Docker image and a single Bash script to analyze ccs_bam PacBio sequencing files, determine the read length, plot box plots, quantitate the number and type of unique CRISPRi arrays, and plot correlation and Chord diagram plots. 
+This repository is an more user-friendly pipline used to analyze multiplex random CRISPR array assembly with high-throughput long-read sequence analysis (MuRCiS) by [Ellis et al](https://elifesciences.org/articles/86903). This pipeline uses a Docker image and a single Bash script to analyze ccs_bam PacBio sequencing files, determine the read length, plot box plots, quantitate the number and type of unique CRISPRi arrays, and plot correlation and Chord diagram plots. 
 
 **Note:** The user does not need to build the Docker image from the Dockerfile or create the Conda environment. It is recommended that the user clone the GitHub repository in order to obtain the bash script (as well as the example files), but the Docker image should be pulled from the Docker Hub. See below for specific instructions. 
 
