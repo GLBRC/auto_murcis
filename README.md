@@ -105,7 +105,7 @@ The output folder will be named `auto_murcis_output` followed by the current dat
 1) Download the free [Docker Desktop](https://www.docker.com/products/docker-desktop/) for their specific hardware. A free Docker account may be required. 
 2) Ensure Docker Desktop is running
 3) Open the terminal for command line access ([Terminal](https://support.apple.com/guide/terminal/welcome/mac) on MacOS or using [Ubuntu](https://ubuntu.com/desktop/wsl) via the [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install))
-4) Pull the latest auto_murcis Docker image every time before running the script:  `docker pull auto_murcis`
+4) Pull the latest auto_murcis Docker image every time before running the script:  `docker pull kevinmyers/auto_murcis`
 
 ### Conda environment    
 
