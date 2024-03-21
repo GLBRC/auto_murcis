@@ -1,1 +1,1 @@
-AC1_Input_NE_01.bam
+example.bam
