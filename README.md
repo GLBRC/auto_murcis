@@ -22,7 +22,7 @@ This repository is an more user-friendly pipline used to analyze multiplex rando
 
     `docker pull auto_murcis`
 
-2) Clone the GitHub repository to the directory containing the other relevant files
+2) Clone the GitHub repository using the following command. Then copy the sequencing files and other required files INTO this directory:
 
     `https://github.com/GLBRC/auto_murcis.git`
 
