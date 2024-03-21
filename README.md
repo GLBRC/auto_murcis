@@ -20,7 +20,7 @@ This repository is an more user-friendly pipline used to analyze multiplex rando
 
 1) Pull the latest auto_murcis Docker image:
 
-    `docker pull auto_murcis`
+    `docker pull kevinmyers/auto_murcis`
 
 2) Clone the GitHub repository using the following command. Then copy the sequencing files and other required files INTO this directory:
 
@@ -33,6 +33,8 @@ This repository is an more user-friendly pipline used to analyze multiplex rando
     This command will start the auto_murcis Docker container, copy the files needed, and process the pipeline. After the pipeline is ended, the output will be copied back to the same directory and the Docker container will be stopped and removed.
 
 ### Required input files for the pipeline
+
+**Copy the sequencing files and text files needed into the cloned GitHub repository folder so the `run_auto_murcis.sh` is in the same directory with the other files**
 
 - All ccs_bam files generated for the MuRCiS experiment
 - A text file listing the BAM files to process, on per line (`-f`). A small example BAM file is provided in the Example directory.
