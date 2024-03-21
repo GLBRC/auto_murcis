@@ -59,6 +59,7 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from functools import reduce
 from itertools import combinations
+from itertools import combinations_with_replacement
 import argparse
 import datetime
 import glob 
