@@ -794,11 +794,9 @@ def main():
         sys.exit(1)
         
     # setup logging 
-    user = pwd.getpwuid(os.getuid())[0]                # get user login name
     logging.basicConfig(filename="murcs_script-Job.log", encoding='utf-8', level=logging.INFO)
     current_time = time.ctime()
-    logging.info(f' Date & time started: {current_time}')
-    logging.info(f' Run by {user}')  
+    logging.info(f' Date & time started: {current_time}')  
     
     # start timer, used to calculate total run time
     start = time.time()  
