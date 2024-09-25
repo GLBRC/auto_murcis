@@ -37,7 +37,7 @@ This repository is an more user-friendly pipline used to analyze multiplex rando
 **Copy the sequencing files and text files needed into the cloned GitHub repository folder so the `run_auto_murcis.sh` is in the same directory with the other files**
 
 - All ccs_bam files generated for the MuRCiS experiment
-- A text file listing the BAM files to process, on per line (`-f`). A small example BAM file is provided in the Example directory.
+- A text file listing the BAM files to process, one per line (`-f`). A small example BAM file is provided in the Example directory.
 - A two column (tab delimited) text file listing the sequences (5'-3') for the repeat and the different spacers used in the experiment (see example below and in Example directory) (`-t`).
 - A two column (comma delimited) text file associating the gene IDs with a specific color to be used in the Chord diagram plots (see example below and in the Example directory) (`-c`).
 
