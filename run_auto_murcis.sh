@@ -58,7 +58,7 @@ copySeqFile="${cwd}/${seqFile}"
 copyTargetFile="${cwd}/${targetFile}"
 copyColorFile="${cwd}/${colorFile}"
 
-docker run -dt --name auto_murcis auto_murcis
+docker run -dt --name auto_murcis kevinmyers/auto_murcis
 docker cp $copySeqFile auto_murcis:/var/auto_murcis/
 docker cp $copyTargetFile auto_murcis:/var/auto_murcis/
 docker cp $copyColorFile auto_murcis:/var/auto_murcis/
