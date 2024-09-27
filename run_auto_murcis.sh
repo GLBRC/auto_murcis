@@ -1,10 +1,5 @@
 #!/bin/bash
 
-#set date and output directory to use
-dateVar=$(date +%d-%m-%Y)
-
-outputDir=$"auto_murcis_output"-$dateVar
-
 #get command line arguments
 while getopts ":f:t:c:h" flag; do
     case $flag in
@@ -65,6 +60,10 @@ docker cp $copyColorFile auto_murcis:/var/auto_murcis/
 while read line; do docker cp ${cwd}/$line auto_murcis:/var/auto_murcis/; done < $seqFile
 #docker run conda activate auto_murcis_env
 docker exec auto_murcis /bin/bash -c "python /var/auto_murcis/murcs_script.py -f $seqFile -t $targetFile -c $colorFile"
+#set date and output directory to use
+dateVar=$(date +%d-%m-%Y)
+outputDir=$"auto_murcis_output"-$dateVar
+#copy output directory from Docker container to local drive
 docker cp auto_murcis:/var/auto_murcis/$outputDir ./
 docker container stop auto_murcis
 docker rm auto_murcis
