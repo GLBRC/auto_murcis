@@ -30,7 +30,15 @@ This repository is an more user-friendly pipline used to analyze multiplex rando
 
     `bash run_auto_murcis.sh -f seq_file.txt -t target_file.txt -c color_file.txt`
 
-    This command will start the auto_murcis Docker container, copy the files needed, and process the pipeline. After the pipeline is ended, the output will be copied back to the same directory and the Docker container will be stopped and removed.
+    This command will start the auto_murcis Docker container, copy the files needed, and process the pipeline. After the pipeline is ended, the output will be copied back to the same directory.
+    
+4)  Stop the Docker container:
+
+    `docker container stop auto_murcis`
+
+5)  Delete the Docker container so you can re-run the pipeline without errors:
+
+    `docker rm auto_murcis`
 
 ### Required input files for the pipeline
 
