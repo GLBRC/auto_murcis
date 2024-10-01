@@ -1,5 +1,4 @@
-#!/bin/bash
-
+##!/bin/bash
 #get command line arguments
 while getopts ":f:t:c:h" flag; do
     case $flag in
@@ -65,5 +64,5 @@ dateVar=$(date +%d-%m-%Y)
 outputDir=$"auto_murcis_output"-$dateVar
 #copy output directory from Docker container to local drive
 docker cp auto_murcis:/var/auto_murcis/$outputDir ./
-docker container stop auto_murcis
-docker rm auto_murcis
+#docker container stop auto_murcis
+#docker rm auto_murcis
