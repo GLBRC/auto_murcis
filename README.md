@@ -115,6 +115,8 @@ The output folder will be named `auto_murcis_output` followed by the current dat
 3) Open the terminal for command line access ([Terminal](https://support.apple.com/guide/terminal/welcome/mac) on MacOS or using [Ubuntu](https://ubuntu.com/desktop/wsl) via the [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install))
 4) Pull the latest auto_murcis Docker image every time before running the script:  `docker pull kevinmyers/auto_murcis`
 
+Docker images are available for AMD64 and ARM64 chip architecture. Docker will automatically pull the proper image for your machine.
+
 ### Conda environment    
 
 Modules built in the auto_murcis Conda environment:
